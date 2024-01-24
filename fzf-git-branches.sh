@@ -10,14 +10,11 @@ fgb() {
             local user_prompt="${1:-Are you sure?}"
             local read_cmd ANS
             local in_zsh=false
-            if [[ -n "$BASH_VERSION" ]]; then
-                read_cmd="read -n 1 ANS"
-            elif [[ -n "$ZSH_VERSION" ]]; then
+            if [[ -n "$ZSH_VERSION" ]]; then
                 in_zsh=true
                 read_cmd="read -k 1 ANS"
             else
-                echo "${0}: Unsupported shell"
-                return 42
+                read_cmd="read -n 1 ANS"
             fi
 
             echo -en "$user_prompt (y|N): "
@@ -78,6 +75,7 @@ fgb() {
             fi
             local branch_name="$1"
             local worktrees; worktrees="$(__fgb_get_list_of_worktrees)"
+            local exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
             while IFS= read -r line; do
                 if [[ "$line" == "$branch_name" ]]; then
                     git worktree list --porcelain | \
@@ -95,26 +93,24 @@ fgb() {
             local force=false
             local positional_args=()
             while [ $# -gt 0 ]; do
-                case "${1}" in
+                case "$1" in
                     -f | --force)
                         force=true
                         ;;
                     *)
-                        positional_args+=("${1}")
+                        positional_args+=("$1")
                         ;;
                 esac
                 shift
             done
 
             if [ "${#positional_args[@]}" -eq 0 ]; then
-                echo "${0}: Missing argument: list of branches"
+                echo "$0: Missing argument: list of branches"
                 return 1
             fi
 
+            local branch_name is_remote remote_name user_prompt exit_code
             local branches_to_delete="${positional_args[*]}"
-            local bare_path; bare_path="$(__fgb_get_bare_repo_path)"
-            local branch_name is_remote remote_name user_prompt
-
             while IFS='' read -r branch_name; do
                 is_remote=false
 
@@ -127,11 +123,12 @@ fgb() {
                 if "$is_remote"; then
                     branch_name="${branch_name#remotes/*/}"
                     user_prompt="${col_r}WARNING:${col_reset}"
-                    user_prompt=" Delete branch: ${col_b}${branch_name}${col_reset}"
+                    user_prompt+=" Delete branch: ${col_b}${branch_name}${col_reset}"
                     user_prompt+=" from remote: ${col_y}${remote_name}${col_reset}?"
                     # NOTE: Avoid --force here as it's no undoable operation for remote branches
                     if __fgb_confirmation_dialog "$user_prompt"; then
                         git push --delete "$remote_name" "$branch_name"
+                        exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                     fi
                 else
                     user_prompt="${col_r}Delete${col_reset} local branch: ${branch_name}?"
@@ -139,7 +136,7 @@ fgb() {
                         if ! git branch -d "$branch_name"; then
                             local head_branch; head_branch="$(git rev-parse --abbrev-ref HEAD)"
                             user_prompt="\n${col_r}WARNING:${col_reset}"
-                            user_prompt=" The branch '${col_b}${branch_name}${col_reset}'"
+                            user_prompt+=" The branch '${col_b}${branch_name}${col_reset}'"
                             user_prompt+=" is not yet merged into the"
                             user_prompt+=" '${col_g}${head_branch}${col_reset}' branch."
                             user_prompt+="\n\nAre you sure you want to delete it?"
@@ -147,6 +144,8 @@ fgb() {
                             # as it's not clear if intended for non-merged branches
                             if __fgb_confirmation_dialog "$user_prompt"; then
                                 git branch -D "$branch_name"
+                                exit_code=$?
+                                if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                             fi
                         fi
                     fi
@@ -165,10 +164,10 @@ fgb() {
             local positional_args=()
 
             while [ $# -gt 0 ]; do
-                case "${1}" in
+                case "$1" in
                     -s | --sort)
                         shift
-                        sort_order="${1}"
+                        sort_order="$1"
                         ;;
                     --sort=*)
                         sort_order="${1#*=}"
@@ -183,24 +182,24 @@ fgb() {
                         force=true
                         ;;
                     *)
-                        positional_args+=("${1}")
+                        positional_args+=("$1")
                         ;;
                 esac
                 shift
             done
 
-            local delete_key="ctrl-d"
+            local del_key="ctrl-d"
             local fzf_cmd="fzf \
-        --ansi \
-        --header 'Manage recent Git Branches: ctrl-y:jump, ctrl-t:toggle, $delete_key:delete' \
-        --preview 'git diff --color=always {1}' \
-        --expect='$delete_key' \
-        --multi \
-        --reverse \
-        --cycle \
-        --bind=ctrl-y:accept,ctrl-t:toggle+down \
-        --select-1 \
-        --pointer=''"
+            --ansi \
+            --header 'Manage recent Git Branches: ctrl-y:jump, ctrl-t:toggle, $del_key:delete' \
+            --preview 'git diff --color=always {1}' \
+            --expect='$del_key' \
+            --multi \
+            --reverse \
+            --cycle \
+            --bind=ctrl-y:accept,ctrl-t:toggle+down \
+            --select-1 \
+            --pointer=''"
 
             if [[ "${#positional_args[@]}" -gt 0 ]]; then
                 fzf_cmd="$fzf_cmd --query='${positional_args[*]}'"
@@ -209,9 +208,9 @@ fgb() {
             local refname_width; refname_width="$(__fgb_get_segment_width_relative_to_window 0.67)"
             local author_width; author_width="$(__fgb_get_segment_width_relative_to_window 0.33)"
             local sgb_cmd="__fgb_git_branch_show \
-        --sort '$sort_order' \
-        --refname-width '$refname_width' \
-        --author-width '$author_width'"
+            --sort '$sort_order' \
+            --refname-width '$refname_width' \
+            --author-width '$author_width'"
 
             if "$show_remote_branches"; then
                 sgb_cmd+=" --remotes"
@@ -229,11 +228,13 @@ fgb() {
 
             local key; key=$(head -1 <<< "$lines")
 
-            if [[ $key == "$delete_key" ]]; then
+            if [[ $key == "$del_key" ]]; then
                 if "$force"; then
                     __fgb_git_branch_delete "$(sed 1d <<< "$lines")" --force
+                    return $?
                 else
                     __fgb_git_branch_delete "$(sed 1d <<< "$lines")"
+                    return $?
                 fi
             else
                 local branch_name; branch_name="$(tail -1 <<< "$lines")"
@@ -243,6 +244,7 @@ fgb() {
                     branch_name="${branch_name#*/}"
                 fi
                 git switch "$branch_name"
+                return $?
             fi
         }
 
@@ -257,24 +259,24 @@ fgb() {
             local show_all_branches=false
 
             while [ $# -gt 0 ]; do
-                case "${1}" in
+                case "$1" in
                     --refname-width)
                         shift
-                        refname_width="${1}"
+                        refname_width="$1"
                         ;;
                     --refname-width=*)
                         refname_width="${1#*=}"
                         ;;
                     --author-width)
                         shift
-                        author_width="${1}"
+                        author_width="$1"
                         ;;
                     --author-width=*)
                         author_width="${1#*=}"
                         ;;
                     -s | --sort)
                         shift
-                        sort_order="${1}"
+                        sort_order="$1"
                         ;;
                     --sort=*)
                         sort_order="${1#*=}"
@@ -286,7 +288,7 @@ fgb() {
                         show_all_branches=true
                         ;;
                     *)
-                        echo "${0}: Invalid argument: ${1}"
+                        echo "$0: Invalid argument: $1"
                         return 1
                         ;;
                 esac
@@ -296,7 +298,7 @@ fgb() {
             local num
             for num in "$refname_width" "$author_width"; do
                 if ! __fgb_is_positive_int "$num"; then
-                    echo "${0}: Invalid value for argument: ${num}"
+                    echo "$0: Invalid value for argument: $num"
                     return 1
                 fi
             done
@@ -340,24 +342,25 @@ fgb() {
             local force=false
             local positional_args=()
             while [ $# -gt 0 ]; do
-                case "${1}" in
+                case "$1" in
                     -f | --force)
                         force=true
                         ;;
                     *)
-                        positional_args+=("${1}")
+                        positional_args+=("$1")
                         ;;
                 esac
                 shift
             done
 
             if [ "${#positional_args[@]}" -eq 0 ]; then
-                echo "${0}: Missing argument: list of branches"
+                echo "$0: Missing argument: list of branches"
                 return 1
             fi
 
             local worktrees_to_delete="${positional_args[*]}"
             local bare_path; bare_path="$(__fgb_get_bare_repo_path)"
+            local exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
             local branch_name worktree_path user_prompt
             while IFS='' read -r branch_name; do
                 if [[ "$branch_name" == remotes/*/* ]]; then
@@ -464,10 +467,10 @@ fgb() {
             local positional_args=()
 
             while [ $# -gt 0 ]; do
-                case "${1}" in
+                case "$1" in
                     -s | --sort)
                         shift
-                        sort_order="${1}"
+                        sort_order="$1"
                         ;;
                     --sort=*)
                         sort_order="${1#*=}"
@@ -482,24 +485,24 @@ fgb() {
                         force=true
                         ;;
                     *)
-                        positional_args+=("${1}")
+                        positional_args+=("$1")
                         ;;
                 esac
                 shift
             done
 
-            local delete_key="ctrl-d"
+            local del_key="ctrl-d"
             local fzf_cmd="fzf \
-        --ansi \
-        --header 'Manage recent Git Worktrees: ctrl-y:jump, ctrl-t:toggle, $delete_key:delete' \
-        --preview 'git diff --color=always {1}' \
-        --expect='$delete_key' \
-        --multi \
-        --reverse \
-        --cycle \
-        --bind=ctrl-y:accept,ctrl-t:toggle+down \
-        --select-1 \
-        --pointer=''"
+            --ansi \
+            --header 'Manage recent Git Worktrees: ctrl-y:jump, ctrl-t:toggle, $del_key:delete' \
+            --preview 'git diff --color=always {1}' \
+            --expect='$del_key' \
+            --multi \
+            --reverse \
+            --cycle \
+            --bind=ctrl-y:accept,ctrl-t:toggle+down \
+            --select-1 \
+            --pointer=''"
 
             if [[ "${#positional_args[@]}" -gt 0 ]]; then
                 fzf_cmd="$fzf_cmd --query='${positional_args[*]}'"
@@ -508,9 +511,9 @@ fgb() {
             local refname_width; refname_width="$(__fgb_get_segment_width_relative_to_window 0.67)"
             local author_width; author_width="$(__fgb_get_segment_width_relative_to_window 0.33)"
             local sgb_cmd="__fgb_git_branch_show \
-        --sort '$sort_order' \
-        --refname-width '$refname_width' \
-        --author-width '$author_width'"
+            --sort '$sort_order' \
+            --refname-width '$refname_width' \
+            --author-width '$author_width'"
 
             if "$show_remote_branches"; then
                 sgb_cmd+=" --remotes"
@@ -528,21 +531,24 @@ fgb() {
 
             local key; key=$(head -1 <<< "$lines")
 
-            if [[ $key == "$delete_key" ]]; then
+            if [[ $key == "$del_key" ]]; then
                 if "$force"; then
                     __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" --force
+                    return $?
                 else
                     __fgb_git_worktree_delete "$(sed 1d <<< "$lines")"
+                    return $?
                 fi
             else
                 __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")"
+                return $?
             fi
         }
 
 
         __fgb_is_positive_int() {
             # Check if the argument is a positive integer
-            if ! [ "${1}" -gt 0 ] 2>/dev/null; then
+            if ! [ "$1" -gt 0 ] 2>/dev/null; then
                 return 1
             fi
         }
@@ -590,7 +596,7 @@ fgb() {
 
             # source: https://unix.stackexchange.com/a/674903/424165
 
-            sed '1d;s/^.*|//;$d' <<< "$1"
+            sed '1d;s/^[^|]*|//;$d' <<< "$1"
         }
 
 
@@ -600,10 +606,10 @@ fgb() {
 
 
         # Define command and adjust arguments
-        local cmd="${1:-}"
+        local fgb_command="$1"
         if [ $# -gt 0 ]; then
             shift
-            local subcommand="${1:-}"
+            local fgb_subcommand="$1"
             [ $# -gt 0 ] && shift
         fi
 
@@ -611,117 +617,131 @@ fgb() {
         local copyright_message
         copyright_message=$(__fgb_stdout_unindented "
             |Copyright (C) 2024 Andrei Bulgakov <https://github.com/awerebea>.
-            |
+
             |License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
             |This is free software; you are free to change and redistribute it.
             |There is NO WARRANTY, to the extent permitted by law.
         ")
 
-        local error_invalid_option_message
-        error_invalid_option_message=$(__fgb_stdout_unindented "
-            |error: unknown option: \`$subcommand'\n
-        ")
-
         local error_invalid_subcommand_message
         error_invalid_subcommand_message=$(__fgb_stdout_unindented "
-            |error: unknown subcommand: \`$subcommand'\n
+            |error: unknown subcommand: \`$fgb_subcommand'
         ")
 
         local -A usage_message=(
             ["fgb"]="$(__fgb_stdout_unindented "
             |Usage: fgb <command> [<args>]
-            |
+
             |Commands:
             |  branch    Manage Git branches
             |  worktree  Manage Git worktrees
-            |
+
             |Options:
             |  -v, --version
             |            Show version information
-            |
+
             |  -h, --help
-            |            Show this help message
+            |            Show help message
             ")"
 
             ["branch"]="$(__fgb_stdout_unindented "
-            |Usage: fgb $cmd <subcommand> [<args>]
-            |
+            |Usage: fgb $fgb_command <subcommand> [<args>]
+
             |Subcommands:
             |  show    Show branches in a git repository
             |  manage  Manage Git branches
-            |
+
             |Options:
             |  -h, --help
-            |          Show this help message
+            |          Show help message
             ")"
 
             ["worktree"]="$(__fgb_stdout_unindented "
-            |Usage: fgb $cmd <subcommand> [<args>]
-            |
+            |Usage: fgb $fgb_command <subcommand> [<args>]
+
             |Subcommands:
             |  manage  Manage Git worktrees
-            |
+
             |Options:
             |  -h, --help
-            |          Show this help message
+            |          Show help message
             ")"
         )
 
         __fgb_set_colors
-        case "$cmd" in
+        local exit_code=
+        case "$fgb_command" in
             branch)
-                case "$subcommand" in
+                case "$fgb_subcommand" in
                     show)
                         __fgb_git_branch_show \
-                            --refname-width "$(__fgb_get_segment_width_relative_to_window 0.67)" \
+                            --refname-width "$( __fgb_get_segment_width_relative_to_window 0.67)" \
                             --author-width "$(__fgb_get_segment_width_relative_to_window 0.33)" \
                             "$@"
+                        exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                         ;;
-                    manage) __fgb_git_branch_manage "$@" ;;
-                    -h | --help) echo "${usage_message[$cmd]}" ;;
+                    manage)
+                        __fgb_git_branch_manage "$@"
+                        exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
+                        ;;
+                    -h | --help) echo "${usage_message[$fgb_command]}" ;;
                     --* | -*)
-                        echo "$error_invalid_option_message" >&2
-                        echo "${usage_message[$cmd]}" >&2
+                        echo "error: unknown option: \`$fgb_subcommand'" >&2
+                        echo "${usage_message[$fgb_command]}" >&2
+                        return 1
+                        ;;
+                    "") echo -e "error: need a subcommand" >&2
+                        echo "${usage_message[$fgb_command]}" >&2
                         return 1
                         ;;
                     *)
                         echo "$error_invalid_subcommand_message" >&2
-                        echo "${usage_message[$cmd]}" >&2
+                        echo "${usage_message[$fgb_command]}" >&2
                         return 1
                         ;;
                 esac
                 ;;
             worktree)
-                case "$subcommand" in
-                    manage) __fgb_git_worktree_manage "$@" ;;
-                    -h | --help) echo "${usage_message[$cmd]}" ;;
+                case "$fgb_subcommand" in
+                    manage)
+                        __fgb_git_worktree_manage "$@"
+                        exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
+                        ;;
+                    -h | --help) echo "${usage_message[$fgb_command]}" ;;
                     --* | -*)
-                        echo "$error_invalid_option_message" >&2
-                        echo "${usage_message[$cmd]}" >&2
+                        echo "error: unknown option: \`$fgb_subcommand'" >&2
+                        echo "${usage_message[$fgb_command]}" >&2
+                        return 1
+                        ;;
+                    "") echo -e "error: need a subcommand" >&2
+                        echo "${usage_message[$fgb_command]}" >&2
                         return 1
                         ;;
                     *)
                         echo "$error_invalid_subcommand_message" >&2
-                        echo "${usage_message[$cmd]}" >&2
+                        echo "${usage_message[$fgb_command]}" >&2
                         return 1
                         ;;
                 esac
                 ;;
             -h | --help)
-                echo "${usage_message["fgb"]}"
+                echo "${usage_message[fgb]}"
                 ;;
             -v | --version)
                 echo "$version_message"
                 echo "$copyright_message"
                 ;;
             --* | -*)
-                echo "$error_invalid_option_message" >&2
-                echo "${usage_message["fgb"]}" >&2
+                echo "error: unknown option: \`$fgb_command'" >&2
+                echo "${usage_message[fgb]}" >&2
+                return 1
+                ;;
+            "")
+                echo "${usage_message[fgb]}" >&2
                 return 1
                 ;;
             *)
-                echo -e "error: unknown command: \`$cmd'\n" >&2
-                echo "${usage_message["fgb"]}" >&2
+                echo "fgb: '$fgb_command' is not a fgb command. See 'fgb --help'." >&2
                 return 1
                 ;;
         esac
@@ -752,9 +772,5 @@ fgb() {
         __fgb_stdout_unindented \
         __fgb_unset_colors
 
-    case "$exit_code" in
-        0) ;;
-        42) return 42 ;;
-        *) return 1 ;;
-    esac
+    return "$exit_code"
 }
