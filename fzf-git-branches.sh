@@ -122,9 +122,11 @@ fgb() {
 
                 if "$is_remote"; then
                     branch_name="${branch_name#remotes/*/}"
-                    user_prompt="${col_r}WARNING:${col_reset}"
-                    user_prompt+=" Delete branch: ${col_b}${branch_name}${col_reset}"
-                    user_prompt+=" from remote: ${col_y}${remote_name}${col_reset}?"
+                    user_prompt=$(__fgb_stdout_unindented "
+                        |${col_r}WARNING:${col_reset} \#
+                        |Delete branch: '${col_b}${branch_name}${col_reset}' \#
+                        |from remote: ${col_y}${remote_name}${col_reset}?
+                    ")
                     # NOTE: Avoid --force here as it's no undoable operation for remote branches
                     if __fgb_confirmation_dialog "$user_prompt"; then
                         git push --delete "$remote_name" "$branch_name"
@@ -135,11 +137,15 @@ fgb() {
                     if "$force" || __fgb_confirmation_dialog "$user_prompt"; then
                         if ! git branch -d "$branch_name"; then
                             local head_branch; head_branch="$(git rev-parse --abbrev-ref HEAD)"
-                            user_prompt="\n${col_r}WARNING:${col_reset}"
-                            user_prompt+=" The branch '${col_b}${branch_name}${col_reset}'"
-                            user_prompt+=" is not yet merged into the"
-                            user_prompt+=" '${col_g}${head_branch}${col_reset}' branch."
-                            user_prompt+="\n\nAre you sure you want to delete it?"
+                            user_prompt=$(__fgb_stdout_unindented "
+
+                                |${col_r}WARNING:${col_reset} \#
+                                |The branch '${col_b}${branch_name}${col_reset}' \#
+                                |is not yet merged into the \#
+                                |'${col_g}${head_branch}${col_reset}' branch.
+
+                                |Are you sure you want to delete it?
+                            ")
                             # NOTE: Avoid --force here
                             # as it's not clear if intended for non-merged branches
                             if __fgb_confirmation_dialog "$user_prompt"; then
@@ -320,18 +326,24 @@ fgb() {
                 ["remotes"]=1
             )
 
-            local ref_type ref_name
+            local ref_type ref_name format_string refs
             for ref_type in "${ref_types[@]}"; do
-                git for-each-ref --format='%(refname)' --sort="$sort_order" refs/"$ref_type" | \
-                    while read -r ref_name; do
-                    local format_string="%(align:width=${refname_width})"
-                    format_string+="%(color:bold yellow)%(refname:lstrip=${type_strip[$ref_type]})"
-                    format_string+="%(color:reset)%(end)"
-                    format_string+="%(align:width=${author_width})"
-                    format_string+="%(color:green)%(committername)%(color:reset)%(end)"
-                    format_string+="(%(color:blue)%(committerdate:relative)%(color:reset))"
+                format_string=$(__fgb_stdout_unindented "
+                    |%(align:width=${refname_width})\#
+                    |%(color:bold yellow)%(refname:lstrip=${type_strip[$ref_type]})\#
+                    |%(color:reset)%(end)\#
+                    |%(align:width=${author_width})\#
+                    |%(color:green)%(committername)%(color:reset)%(end)\#
+                    |(%(color:blue)%(committerdate:relative)%(color:reset))
+                ")
+                refs=$(git for-each-ref \
+                        --format='%(refname)' \
+                        --sort="$sort_order" \
+                        refs/"$ref_type"
+                )
+                while read -r ref_name; do
                     git for-each-ref --format="$format_string" "$ref_name" --color=always
-                done
+                done <<< "$refs"
             done
         }
 
@@ -361,35 +373,43 @@ fgb() {
             local worktrees_to_delete="${positional_args[*]}"
             local bare_path; bare_path="$(__fgb_get_bare_repo_path)"
             local exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
-            local branch_name worktree_path user_prompt
+            local branch_name wt_path user_prompt
             while IFS='' read -r branch_name; do
                 if [[ "$branch_name" == remotes/*/* ]]; then
                     # Remove first two components of the reference name (remotes/<upstream>/)
                     branch_name="${branch_name#*/}"
                     branch_name="${branch_name#*/}"
                 fi
-                worktree_path="$(__fgb_get_worktree_path_for_branch "$branch_name")"
-                if [[ -n "$worktree_path" ]]; then
+                wt_path="$(__fgb_get_worktree_path_for_branch "$branch_name")"
+                if [[ -n "$wt_path" ]]; then
                     local is_in_target_wt=false
-                    if [[ "$PWD" == "$worktree_path" ]]; then
+                    if [[ "$PWD" == "$wt_path" ]]; then
                         cd "$bare_path" && is_in_target_wt=true || return 1
                     fi
-                    user_prompt="${col_r}Delete${col_reset} worktree:"
-                    user_prompt+=" ${col_y}${worktree_path}${col_reset}"
-                    user_prompt+=" for branch: ${col_b}${branch_name}${col_reset}?"
+                    user_prompt=$(__fgb_stdout_unindented "
+                        |${col_r}Delete${col_reset} worktree: \#
+                        |${col_y}${wt_path}${col_reset}, \#
+                        |for branch '${col_b}${branch_name}${col_reset}'?
+                    ")
                     if "$force" || __fgb_confirmation_dialog "$user_prompt"; then
-                        user_prompt="${col_g}Deleted${col_reset} worktree:"
-                        user_prompt+=" ${col_y}${worktree_path}${col_reset},"
-                        user_prompt+=" for branch: ${col_b}${branch_name}${col_reset}"
+                        user_prompt=$(__fgb_stdout_unindented "
+                            |${col_g}Deleted${col_reset} worktree: \#
+                            |${col_y}${wt_path}${col_reset}, \#
+                            |for branch '${col_b}${branch_name}${col_reset}'
+                        ")
                         if ! git worktree remove "$branch_name"; then
                             local success_message="$user_prompt"
-                            user_prompt="\n${col_r}WARNING:${col_reset}"
-                            user_prompt+=" This will permanently reset/delete the following files:"
-                            user_prompt+="\n\n$(
-                                script -q /dev/null -c "git -C \"$worktree_path\" status --short"
-                            )\n\n"
-                            user_prompt+="in the ${col_y}${worktree_path}${col_reset} path."
-                            user_prompt+="\n\nAre you sure you want to proceed?"
+                            user_prompt=$(__fgb_stdout_unindented "
+
+                                |${col_r}WARNING:${col_reset} \#
+                                |This will permanently reset/delete the following files:
+
+                                |$(script -q /dev/null -c "git -C \"$wt_path\" status --short")
+
+                                |in the ${col_y}${wt_path}${col_reset} path.
+
+                                |Are you sure you want to proceed?
+                            ")
                             # NOTE: Avoid --force here as it's not undoable operation
                             if __fgb_confirmation_dialog "$user_prompt"; then
                                 if git worktree remove "$branch_name" --force; then
@@ -397,7 +417,7 @@ fgb() {
                                 fi
                             else
                                 if "$is_in_target_wt"; then
-                                    cd "$worktree_path" || return 1
+                                    cd "$wt_path" || return 1
                                 fi
                             fi
                         else
@@ -405,7 +425,7 @@ fgb() {
                         fi
                     else
                         if "$is_in_target_wt"; then
-                            cd "$worktree_path" || return 1
+                            cd "$wt_path" || return 1
                         fi
                     fi
                 fi
@@ -426,26 +446,30 @@ fgb() {
                 branch_name="${branch_name#*/}"
                 branch_name="${branch_name#*/}"
             fi
-            local worktree_path
-            worktree_path="$(__fgb_get_worktree_path_for_branch "$branch_name")"
+            local wt_path
+            wt_path="$(__fgb_get_worktree_path_for_branch "$branch_name")"
             local message
-            if [[ -n "$worktree_path" ]]; then
-                if cd "$worktree_path"; then
-                    message="${col_g}Jumped${col_reset} to worktree:"
-                    message+=" ${col_y}${worktree_path}${col_reset},"
-                    message+=" for branch: ${col_b}${branch_name}${col_reset}"
+            if [[ -n "$wt_path" ]]; then
+                if cd "$wt_path"; then
+                    message=$(__fgb_stdout_unindented "
+                        |${col_g}Jumped${col_reset} to worktree: \#
+                        |${col_y}${wt_path}${col_reset}, \#
+                        |for branch '${col_b}${branch_name}${col_reset}'
+                    ")
                     echo -e "$message"
                 else
                     return 1
                 fi
             else
                 local bare_path; bare_path="$(__fgb_get_bare_repo_path)"
-                local worktree_path="${bare_path}/${branch_name}"
-                if git worktree add "$worktree_path" "$branch_name"; then
-                    cd "$worktree_path" || return 1
-                    message="Worktree ${col_y}${worktree_path}${col_reset}"
-                    message+=" for branch: ${col_b}${branch_name}${col_reset}"
-                    message+=" created successfully.\n${col_g}Jumped${col_reset} there."
+                local wt_path="${bare_path}/${branch_name}"
+                if git worktree add "$wt_path" "$branch_name"; then
+                    cd "$wt_path" || return 1
+                    message=$(__fgb_stdout_unindented "
+                    |Worktree ${col_y}${wt_path}${col_reset} \#
+                    |for branch '${col_b}${branch_name}${col_reset}' created successfully.
+                    |${col_g}Jumped${col_reset} there.
+                    ")
                     echo -e "$message"
                 fi
             fi
