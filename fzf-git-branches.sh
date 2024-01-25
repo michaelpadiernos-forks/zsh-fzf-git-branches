@@ -596,7 +596,9 @@ fgb() {
 
             # source: https://unix.stackexchange.com/a/674903/424165
 
-            sed '1d;s/^[^|]*|//;$d' <<< "$1"
+            # Concatenate lines that end with \# (backslash followed by a hash character) and then
+            # remove indentation
+            sed '1d;s/^[^|]*|//;$d' <<< "$(sed -z 's/\\#\n[^|]*|//g' <<< "$1")"
         }
 
 
