@@ -1,7 +1,32 @@
 # Description: Manage Git branches and worktrees with fzf
 
+command -v fzf >/dev/null 2>&1 || return
+
 fgb() {
     local VERSION="0.1.0"
+
+    # Set the command to use for fzf
+    local fzf_version
+    fzf_version=$(fzf --version | awk -F. '{ print $1 * 1e6 + $2 * 1e3 + $3 }')
+    local fzf_min_version=16001
+
+    local FZF_ARGS_GLOB="\
+            --ansi \
+            --bind=ctrl-y:accept,ctrl-t:toggle+down \
+            --cycle \
+            --multi \
+            --pointer='' \
+            --preview 'git log --oneline --decorate --graph --color=always {1}' \
+            --select-1 \
+        "
+    local FZF_CMD_GLOB
+    if [[ $fzf_version -gt $fzf_min_version ]]; then
+        FZF_CMD_GLOB="fzf --height 40% --reverse $FZF_ARGS_GLOB"
+    elif [[ ${FZF_TMUX:-1} -eq 1 ]]; then
+        FZF_CMD_GLOB="fzf-tmux -d${FZF_TMUX_HEIGHT:-40%}"
+    else
+        FZF_CMD_GLOB="fzf $FZF_ARGS_GLOB"
+    fi
 
     __fgb__functions() {
         __fgb_confirmation_dialog() {
@@ -328,18 +353,9 @@ fgb() {
 
             local del_key="ctrl-d"
             local fzf_cmd="\
-                fzf \
-                    --height 40% \
-                    --ansi \
-                    --header 'Manage Git Branches: ctrl-y:jump, ctrl-t:toggle, $del_key:delete' \
-                    --preview 'git diff --color=always {1}' \
+                $FZF_CMD_GLOB \
                     --expect='$del_key' \
-                    --multi \
-                    --reverse \
-                    --cycle \
-                    --bind=ctrl-y:accept,ctrl-t:toggle+down \
-                    --select-1 \
-                    --pointer='' \
+                    --header 'Manage Git Branches: ctrl-y:jump, ctrl-t:toggle, $del_key:delete' \
                 "
 
             if [[ "${#positional_args[@]}" -gt 0 ]]; then
@@ -569,18 +585,9 @@ fgb() {
 
             local del_key="ctrl-d"
             local fzf_cmd="\
-                fzf \
-                    --height 40% \
-                    --ansi \
-                    --header 'Manage Git Worktrees: ctrl-y:jump, ctrl-t:toggle, $del_key:delete' \
-                    --preview 'git diff --color=always {1}' \
+                $FZF_CMD_GLOB \
                     --expect='$del_key' \
-                    --multi \
-                    --reverse \
-                    --cycle \
-                    --bind=ctrl-y:accept,ctrl-t:toggle+down \
-                    --select-1 \
-                    --pointer='' \
+                    --header 'Manage Git Worktrees: ctrl-y:jump, ctrl-t:toggle, $del_key:delete' \
                 "
 
             if [[ "${#positional_args[@]}" -gt 0 ]]; then
