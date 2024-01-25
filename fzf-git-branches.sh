@@ -195,28 +195,32 @@ fgb() {
             done
 
             local del_key="ctrl-d"
-            local fzf_cmd="fzf \
-            --ansi \
-            --header 'Manage recent Git Branches: ctrl-y:jump, ctrl-t:toggle, $del_key:delete' \
-            --preview 'git diff --color=always {1}' \
-            --expect='$del_key' \
-            --multi \
-            --reverse \
-            --cycle \
-            --bind=ctrl-y:accept,ctrl-t:toggle+down \
-            --select-1 \
-            --pointer=''"
+            local fzf_cmd="\
+                fzf \
+                    --ansi \
+                    --header 'Manage Git Branches: ctrl-y:jump, ctrl-t:toggle, $del_key:delete' \
+                    --preview 'git diff --color=always {1}' \
+                    --expect='$del_key' \
+                    --multi \
+                    --reverse \
+                    --cycle \
+                    --bind=ctrl-y:accept,ctrl-t:toggle+down \
+                    --select-1 \
+                    --pointer='' \
+                "
 
             if [[ "${#positional_args[@]}" -gt 0 ]]; then
-                fzf_cmd="$fzf_cmd --query='${positional_args[*]}'"
+                fzf_cmd+=" --query='${positional_args[*]}'"
             fi
 
             local refname_width; refname_width="$(__fgb_get_segment_width_relative_to_window 0.67)"
             local author_width; author_width="$(__fgb_get_segment_width_relative_to_window 0.33)"
-            local sgb_cmd="__fgb_git_branch_show \
-            --sort '$sort_order' \
-            --refname-width '$refname_width' \
-            --author-width '$author_width'"
+            local sgb_cmd="\
+                __fgb_git_branch_show \
+                    --sort '$sort_order' \
+                    --refname-width '$refname_width' \
+                    --author-width '$author_width' \
+                "
 
             if "$show_remote_branches"; then
                 sgb_cmd+=" --remotes"
@@ -516,28 +520,32 @@ fgb() {
             done
 
             local del_key="ctrl-d"
-            local fzf_cmd="fzf \
-            --ansi \
-            --header 'Manage recent Git Worktrees: ctrl-y:jump, ctrl-t:toggle, $del_key:delete' \
-            --preview 'git diff --color=always {1}' \
-            --expect='$del_key' \
-            --multi \
-            --reverse \
-            --cycle \
-            --bind=ctrl-y:accept,ctrl-t:toggle+down \
-            --select-1 \
-            --pointer=''"
+            local fzf_cmd="\
+                fzf \
+                    --ansi \
+                    --header 'Manage Git Worktrees: ctrl-y:jump, ctrl-t:toggle, $del_key:delete' \
+                    --preview 'git diff --color=always {1}' \
+                    --expect='$del_key' \
+                    --multi \
+                    --reverse \
+                    --cycle \
+                    --bind=ctrl-y:accept,ctrl-t:toggle+down \
+                    --select-1 \
+                    --pointer='' \
+                "
 
             if [[ "${#positional_args[@]}" -gt 0 ]]; then
-                fzf_cmd="$fzf_cmd --query='${positional_args[*]}'"
+                fzf_cmd+=" --query='${positional_args[*]}'"
             fi
 
             local refname_width; refname_width="$(__fgb_get_segment_width_relative_to_window 0.67)"
             local author_width; author_width="$(__fgb_get_segment_width_relative_to_window 0.33)"
-            local sgb_cmd="__fgb_git_branch_show \
-            --sort '$sort_order' \
-            --refname-width '$refname_width' \
-            --author-width '$author_width'"
+            local sgb_cmd="\
+                __fgb_git_branch_show \
+                    --sort $sort_order \
+                    --refname-width $refname_width \
+                    --author-width $author_width \
+                "
 
             if "$show_remote_branches"; then
                 sgb_cmd+=" --remotes"
