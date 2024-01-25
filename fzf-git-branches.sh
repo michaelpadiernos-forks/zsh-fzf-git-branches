@@ -50,6 +50,22 @@ fgb() {
         }
 
 
+        __fgb_is_positive_int_or_float() {
+            # Check if the argument is a positive integer or a floating-point number
+            if [[ $# -eq 0 ]]; then
+                return 1
+            fi
+            local multiplier="$1"
+            if [[ "$multiplier" =~ ^[0-9]+$ ]]; then
+                return 0
+            elif [[ "$multiplier" =~ ^[0-9]+\.[0-9]+$ ]]; then
+                return 0
+            else
+                return 1
+            fi
+        }
+
+
         __fgb_get_segment_width_relative_to_window() {
             # Calculate the width of a segment relative to the width of the terminal window
 
@@ -84,6 +100,29 @@ fgb() {
                         cut -d " " -f 2
                 fi
             done <<< "$worktrees"
+        }
+
+
+        __fgb_stdout_unindented() {
+            # Print a string to stdout unindented
+
+            # Usage: $0 "string"
+            # String supposed to be indented with any number of any characters.
+            # The first `|' character in the string will be treated as the start of the string.
+            # The first and last lines of the string will be removed because they must be empty and
+            # exist since a quoted literal starts with a new line after the opening quote and ends
+            # with a new line before the closing quote, like this:
+
+            # string="
+            #     |line 1
+            #     |line 2
+            # "
+
+            # source: https://unix.stackexchange.com/a/674903/424165
+
+            # Concatenate lines that end with \# (backslash followed by a hash character) and then
+            # remove indentation
+            sed '1d;s/^[^|]*|//;$d' <<< "$(sed -z 's/\\#\n[^|]*|//g' <<< "$1")"
         }
 
 
@@ -157,6 +196,99 @@ fgb() {
                     fi
                 fi
             done <<< "$branches_to_delete"
+        }
+
+
+        __fgb_git_branch_show() {
+            # Show branches in a git repository
+
+            local refname_width=75
+            local author_width=40
+            local sort_order="refname"
+            local show_remote_branches=false
+            local show_all_branches=false
+
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                    --refname-width)
+                        shift
+                        refname_width="$1"
+                        ;;
+                    --refname-width=*)
+                        refname_width="${1#*=}"
+                        ;;
+                    --author-width)
+                        shift
+                        author_width="$1"
+                        ;;
+                    --author-width=*)
+                        author_width="${1#*=}"
+                        ;;
+                    -s | --sort)
+                        shift
+                        sort_order="$1"
+                        ;;
+                    --sort=*)
+                        sort_order="${1#*=}"
+                        ;;
+                    -r | --remotes)
+                        show_remote_branches=true
+                        ;;
+                    -a | --all)
+                        show_all_branches=true
+                        ;;
+                    *)
+                        echo "$0: Invalid argument: $1"
+                        return 1
+                        ;;
+                esac
+                shift
+            done
+
+            local num
+            for num in "$refname_width" "$author_width"; do
+                if ! __fgb_is_positive_int "$num"; then
+                    echo "$0: Invalid value for argument: $num"
+                    return 1
+                fi
+            done
+
+            local ref_types=()
+            if "$show_remote_branches"; then
+                ref_types=("remotes")
+            else
+                ref_types=("heads")
+            fi
+
+            if "$show_all_branches"; then
+                ref_types=("heads" "remotes")
+            fi
+
+            local -A type_strip
+            type_strip=(
+                ["heads"]=2
+                ["remotes"]=1
+            )
+
+            local ref_type ref_name format_string refs
+            for ref_type in "${ref_types[@]}"; do
+                format_string=$(__fgb_stdout_unindented "
+                    |%(align:width=${refname_width})\#
+                    |%(color:bold yellow)%(refname:lstrip=${type_strip[$ref_type]})\#
+                    |%(color:reset)%(end)\#
+                    |%(align:width=${author_width})\#
+                    |%(color:green)%(committername)%(color:reset)%(end)\#
+                    |(%(color:blue)%(committerdate:relative)%(color:reset))
+                ")
+                refs=$(git for-each-ref \
+                        --format='%(refname)' \
+                        --sort="$sort_order" \
+                        refs/"$ref_type"
+                )
+                while read -r ref_name; do
+                    git for-each-ref --format="$format_string" "$ref_name" --color=always
+                done <<< "$refs"
+            done
         }
 
 
@@ -260,96 +392,11 @@ fgb() {
         }
 
 
-        __fgb_git_branch_show() {
-            # Show branches in a git repository
-
-            local refname_width=75
-            local author_width=40
-            local sort_order="refname"
-            local show_remote_branches=false
-            local show_all_branches=false
-
-            while [ $# -gt 0 ]; do
-                case "$1" in
-                    --refname-width)
-                        shift
-                        refname_width="$1"
-                        ;;
-                    --refname-width=*)
-                        refname_width="${1#*=}"
-                        ;;
-                    --author-width)
-                        shift
-                        author_width="$1"
-                        ;;
-                    --author-width=*)
-                        author_width="${1#*=}"
-                        ;;
-                    -s | --sort)
-                        shift
-                        sort_order="$1"
-                        ;;
-                    --sort=*)
-                        sort_order="${1#*=}"
-                        ;;
-                    -r | --remotes)
-                        show_remote_branches=true
-                        ;;
-                    -a | --all)
-                        show_all_branches=true
-                        ;;
-                    *)
-                        echo "$0: Invalid argument: $1"
-                        return 1
-                        ;;
-                esac
-                shift
-            done
-
-            local num
-            for num in "$refname_width" "$author_width"; do
-                if ! __fgb_is_positive_int "$num"; then
-                    echo "$0: Invalid value for argument: $num"
-                    return 1
-                fi
-            done
-
-            local ref_types=()
-            if "$show_remote_branches"; then
-                ref_types=("remotes")
-            else
-                ref_types=("heads")
+        __fgb_is_positive_int() {
+            # Check if the argument is a positive integer
+            if ! [ "$1" -gt 0 ] 2>/dev/null; then
+                return 1
             fi
-
-            if "$show_all_branches"; then
-                ref_types=("heads" "remotes")
-            fi
-
-            local -A type_strip
-            type_strip=(
-                ["heads"]=2
-                ["remotes"]=1
-            )
-
-            local ref_type ref_name format_string refs
-            for ref_type in "${ref_types[@]}"; do
-                format_string=$(__fgb_stdout_unindented "
-                    |%(align:width=${refname_width})\#
-                    |%(color:bold yellow)%(refname:lstrip=${type_strip[$ref_type]})\#
-                    |%(color:reset)%(end)\#
-                    |%(align:width=${author_width})\#
-                    |%(color:green)%(committername)%(color:reset)%(end)\#
-                    |(%(color:blue)%(committerdate:relative)%(color:reset))
-                ")
-                refs=$(git for-each-ref \
-                        --format='%(refname)' \
-                        --sort="$sort_order" \
-                        refs/"$ref_type"
-                )
-                while read -r ref_name; do
-                    git for-each-ref --format="$format_string" "$ref_name" --color=always
-                done <<< "$refs"
-            done
         }
 
 
@@ -580,59 +627,12 @@ fgb() {
         }
 
 
-        __fgb_is_positive_int() {
-            # Check if the argument is a positive integer
-            if ! [ "$1" -gt 0 ] 2>/dev/null; then
-                return 1
-            fi
-        }
-
-
-        __fgb_is_positive_int_or_float() {
-            # Check if the argument is a positive integer or a floating-point number
-            if [[ $# -eq 0 ]]; then
-                return 1
-            fi
-            local multiplier="$1"
-            if [[ "$multiplier" =~ ^[0-9]+$ ]]; then
-                return 0
-            elif [[ "$multiplier" =~ ^[0-9]+\.[0-9]+$ ]]; then
-                return 0
-            else
-                return 1
-            fi
-        }
-
-
         __fgb_set_colors() {
             declare -g col_reset='\033[0m'
             declare -g col_r='\033[1;31m'
             declare -g col_g='\033[1;32m'
             declare -g col_y='\033[1;33m'
             declare -g col_b='\033[1;34m'
-        }
-
-
-        __fgb_stdout_unindented() {
-            # Print a string to stdout unindented
-
-            # Usage: __fgb_stdout_unindented "string"
-            # String supposed to be indented with any number of any characters.
-            # The first `|' character in the string will be treated as the start of the string.
-            # The first and last lines of the string will be removed because they must be empty and
-            # exist since a quoted literal starts with a new line after the opening quote and ends
-            # with a new line before the closing quote, like this:
-
-            # string="
-            #     |line 1
-            #     |line 2
-            # "
-
-            # source: https://unix.stackexchange.com/a/674903/424165
-
-            # Concatenate lines that end with \# (backslash followed by a hash character) and then
-            # remove indentation
-            sed '1d;s/^[^|]*|//;$d' <<< "$(sed -z 's/\\#\n[^|]*|//g' <<< "$1")"
         }
 
 
