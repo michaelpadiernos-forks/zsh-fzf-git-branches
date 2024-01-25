@@ -362,11 +362,9 @@ fgb() {
                 fzf_cmd+=" --query='${positional_args[*]}'"
             fi
 
-            local refname_width; refname_width="$(__fgb_get_segment_width_relative_to_window 0.67)"
-            local author_width; author_width="$(__fgb_get_segment_width_relative_to_window 0.33)"
             local branch_show_cmd="\
                 __fgb_git_branch_show \
-                    --sort '$sort_order' \
+                    --sort $sort_order \
                     --refname-width '$refname_width' \
                     --author-width '$author_width' \
                 "
@@ -594,8 +592,6 @@ fgb() {
                 fzf_cmd+=" --query='${positional_args[*]}'"
             fi
 
-            local refname_width; refname_width="$(__fgb_get_segment_width_relative_to_window 0.67)"
-            local author_width; author_width="$(__fgb_get_segment_width_relative_to_window 0.33)"
             local branch_show_cmd="\
                 __fgb_git_branch_show \
                     --sort $sort_order \
@@ -710,6 +706,9 @@ fgb() {
             |          Show help message
             ")"
         )
+
+        local refname_width; refname_width="$(__fgb_get_segment_width_relative_to_window 0.67)"
+        local author_width; author_width="$(__fgb_get_segment_width_relative_to_window 0.33)"
 
         __fgb_set_colors
         local exit_code=
