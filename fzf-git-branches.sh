@@ -348,7 +348,7 @@ fgb() {
 
             local refname_width; refname_width="$(__fgb_get_segment_width_relative_to_window 0.67)"
             local author_width; author_width="$(__fgb_get_segment_width_relative_to_window 0.33)"
-            local sgb_cmd="\
+            local branch_show_cmd="\
                 __fgb_git_branch_show \
                     --sort '$sort_order' \
                     --refname-width '$refname_width' \
@@ -356,14 +356,14 @@ fgb() {
                 "
 
             if "$show_remote_branches"; then
-                sgb_cmd+=" --remotes"
+                branch_show_cmd+=" --remotes"
             fi
 
             if "$show_all_branches"; then
-                sgb_cmd+=" --all"
+                branch_show_cmd+=" --all"
             fi
 
-            local lines; lines="$(eval "$sgb_cmd" | eval "$fzf_cmd" | cut -d " " -f 1)"
+            local lines; lines="$(eval "$branch_show_cmd" | eval "$fzf_cmd" | cut -d " " -f 1)"
 
             if [[ -z "$lines" ]]; then
                 return
@@ -589,7 +589,7 @@ fgb() {
 
             local refname_width; refname_width="$(__fgb_get_segment_width_relative_to_window 0.67)"
             local author_width; author_width="$(__fgb_get_segment_width_relative_to_window 0.33)"
-            local sgb_cmd="\
+            local branch_show_cmd="\
                 __fgb_git_branch_show \
                     --sort $sort_order \
                     --refname-width $refname_width \
@@ -597,14 +597,14 @@ fgb() {
                 "
 
             if "$show_remote_branches"; then
-                sgb_cmd+=" --remotes"
+                branch_show_cmd+=" --remotes"
             fi
 
             if "$show_all_branches"; then
-                sgb_cmd+=" --all"
+                branch_show_cmd+=" --all"
             fi
 
-            local lines; lines="$(eval "$sgb_cmd" | eval "$fzf_cmd" | cut -d " " -f 1)"
+            local lines; lines="$(eval "$branch_show_cmd" | eval "$fzf_cmd" | cut -d " " -f 1)"
 
             if [[ -z "$lines" ]]; then
                 return
