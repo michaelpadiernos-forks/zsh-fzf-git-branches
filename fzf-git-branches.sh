@@ -197,6 +197,7 @@ fgb() {
             local del_key="ctrl-d"
             local fzf_cmd="\
                 fzf \
+                    --height 40% \
                     --ansi \
                     --header 'Manage Git Branches: ctrl-y:jump, ctrl-t:toggle, $del_key:delete' \
                     --preview 'git diff --color=always {1}' \
@@ -522,6 +523,7 @@ fgb() {
             local del_key="ctrl-d"
             local fzf_cmd="\
                 fzf \
+                    --height 40% \
                     --ansi \
                     --header 'Manage Git Worktrees: ctrl-y:jump, ctrl-t:toggle, $del_key:delete' \
                     --preview 'git diff --color=always {1}' \
