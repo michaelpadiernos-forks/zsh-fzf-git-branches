@@ -406,6 +406,34 @@ fgb() {
         }
 
 
+        __fgb_git_branch() {
+            local subcommand="$1"
+            shift
+            case $subcommand in
+                show)
+                    __fgb_git_branch_show \
+                        --refname-width "$refname_width" \
+                        --author-width "$author_width" \
+                        "$@"
+                    ;;
+                manage)
+                    __fgb_git_branch_manage "$@"
+                    ;;
+                -h | --help) echo "${usage_message[branch]}" ;;
+                --* | -*)
+                    echo "error: unknown option: \`$subcommand'" >&2
+                    echo "${usage_message[branch]}" >&2
+                    return 1
+                    ;;
+                *)
+                    echo "error: unknown subcommand: \`$subcommand'" >&2
+                    echo "${usage_message[branch]}" >&2
+                    return 1
+                    ;;
+            esac
+        }
+
+
         __fgb_is_positive_int() {
             # Check if the argument is a positive integer
             if ! [ "$1" -gt 0 ] 2>/dev/null; then
@@ -630,6 +658,29 @@ fgb() {
         }
 
 
+        __fgb_git_worktree() {
+            local subcommand="$1"
+            shift
+            case $subcommand in
+                manage)
+                    __fgb_git_worktree_manage "$@"
+                    exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
+                    ;;
+                -h | --help) echo "${usage_message[worktree]}" ;;
+                --* | -*)
+                    echo "error: unknown option: \`$subcommand'" >&2
+                    echo "${usage_message[worktree]}" >&2
+                    return 1
+                    ;;
+                *)
+                    echo "error: unknown subcommand: \`$subcommand'" >&2
+                    echo "${usage_message[worktree]}" >&2
+                    return 1
+                    ;;
+            esac
+        }
+
+
         __fgb_set_colors() {
             declare -g col_reset='\033[0m'
             declare -g col_r='\033[1;31m'
@@ -643,15 +694,7 @@ fgb() {
             unset col_reset col_r col_g col_y col_b
         }
 
-
-        # Define command and adjust arguments
-        local fgb_command="$1"
-        if [ $# -gt 0 ]; then
-            shift
-            local fgb_subcommand="$1"
-            [ $# -gt 0 ] && shift
-        fi
-
+        # Define messages
         local version_message="fzf-git-branches, version $VERSION\n"
         local copyright_message
         copyright_message=$(__fgb_stdout_unindented "
@@ -662,34 +705,29 @@ fgb() {
             |There is NO WARRANTY, to the extent permitted by law.
         ")
 
-        local error_invalid_subcommand_message
-        error_invalid_subcommand_message=$(__fgb_stdout_unindented "
-            |error: unknown subcommand: \`$fgb_subcommand'
-        ")
-
         local -A usage_message=(
             ["fgb"]="$(__fgb_stdout_unindented "
             |Usage: fgb <command> [<args>]
-
+            |
             |Commands:
             |  branch    Manage Git branches
             |  worktree  Manage Git worktrees
-
+            |
             |Options:
             |  -v, --version
             |            Show version information
-
+            |
             |  -h, --help
             |            Show help message
             ")"
 
             ["branch"]="$(__fgb_stdout_unindented "
             |Usage: fgb $fgb_command <subcommand> [<args>]
-
+            |
             |Subcommands:
             |  show    Show branches in a git repository
             |  manage  Manage Git branches
-
+            |
             |Options:
             |  -h, --help
             |          Show help message
@@ -697,15 +735,21 @@ fgb() {
 
             ["worktree"]="$(__fgb_stdout_unindented "
             |Usage: fgb $fgb_command <subcommand> [<args>]
-
+            |
             |Subcommands:
             |  manage  Manage Git worktrees
-
+            |
             |Options:
             |  -h, --help
             |          Show help message
             ")"
         )
+
+
+        # Define command and adjust arguments
+        local fgb_command="${1:-}"
+        shift
+        local fgb_subcommand="${1:-}"
 
         local refname_width; refname_width="$(__fgb_get_segment_width_relative_to_window 0.67)"
         local author_width; author_width="$(__fgb_get_segment_width_relative_to_window 0.33)"
@@ -715,54 +759,25 @@ fgb() {
         case "$fgb_command" in
             branch)
                 case "$fgb_subcommand" in
-                    show)
-                        __fgb_git_branch_show \
-                            --refname-width "$( __fgb_get_segment_width_relative_to_window 0.67)" \
-                            --author-width "$(__fgb_get_segment_width_relative_to_window 0.33)" \
-                            "$@"
-                        exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
-                        ;;
-                    manage)
-                        __fgb_git_branch_manage "$@"
-                        exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
-                        ;;
-                    -h | --help) echo "${usage_message[$fgb_command]}" ;;
-                    --* | -*)
-                        echo "error: unknown option: \`$fgb_subcommand'" >&2
-                        echo "${usage_message[$fgb_command]}" >&2
-                        return 1
-                        ;;
                     "") echo -e "error: need a subcommand" >&2
                         echo "${usage_message[$fgb_command]}" >&2
                         return 1
                         ;;
                     *)
-                        echo "$error_invalid_subcommand_message" >&2
-                        echo "${usage_message[$fgb_command]}" >&2
-                        return 1
+                        __fgb_git_branch "$@"
+                        exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                         ;;
                 esac
                 ;;
             worktree)
                 case "$fgb_subcommand" in
-                    manage)
-                        __fgb_git_worktree_manage "$@"
-                        exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
-                        ;;
-                    -h | --help) echo "${usage_message[$fgb_command]}" ;;
-                    --* | -*)
-                        echo "error: unknown option: \`$fgb_subcommand'" >&2
-                        echo "${usage_message[$fgb_command]}" >&2
-                        return 1
-                        ;;
                     "") echo -e "error: need a subcommand" >&2
                         echo "${usage_message[$fgb_command]}" >&2
                         return 1
                         ;;
                     *)
-                        echo "$error_invalid_subcommand_message" >&2
-                        echo "${usage_message[$fgb_command]}" >&2
-                        return 1
+                        __fgb_git_worktree "$@"
+                        exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                         ;;
                 esac
                 ;;
@@ -802,9 +817,11 @@ fgb() {
         __fgb_get_list_of_worktrees \
         __fgb_get_segment_width_relative_to_window \
         __fgb_get_worktree_path_for_branch \
+        __fgb_git_branch \
         __fgb_git_branch_delete \
         __fgb_git_branch_manage \
         __fgb_git_branch_show \
+        __fgb_git_worktree \
         __fgb_git_worktree_delete \
         __fgb_git_worktree_jump_or_create \
         __fgb_git_worktree_manage \
