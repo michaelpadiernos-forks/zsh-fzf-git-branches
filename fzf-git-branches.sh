@@ -262,6 +262,15 @@ fgb() {
                     -a | --all)
                         show_all_branches=true
                         ;;
+                    -h | --help)
+                        echo "${usage_message[branch_show]}"
+                        return
+                        ;;
+                    --* | -*)
+                        echo "error: unknown option: \`$1'" >&2
+                        echo "${usage_message[branch_show]}" >&2
+                        return 1
+                        ;;
                     *)
                         echo "$0: Invalid argument: $1"
                         return 1
@@ -321,10 +330,9 @@ fgb() {
             # Manage Git branches
 
             local sort_order="-committerdate"
-            local show_remote_branches=false
-            local show_all_branches=false
             local force=false
             local positional_args=()
+            local branch_show_args=()
 
             while [ $# -gt 0 ]; do
                 case "$1" in
@@ -335,14 +343,20 @@ fgb() {
                     --sort=*)
                         sort_order="${1#*=}"
                         ;;
-                    -r | --remotes)
-                        show_remote_branches=true
-                        ;;
-                    -a | --all)
-                        show_all_branches=true
+                    -a | --all | -r | --remotes)
+                        branch_show_args+=("$1")
                         ;;
                     -f | --force)
                         force=true
+                        ;;
+                    -h | --help)
+                        echo "${usage_message[branch_manage]}"
+                        return
+                        ;;
+                    --* | -*)
+                        echo "error: unknown option: \`$1'" >&2
+                        echo "${usage_message[branch_manage]}" >&2
+                        return 1
                         ;;
                     *)
                         positional_args+=("$1")
@@ -367,15 +381,8 @@ fgb() {
                     --sort $sort_order \
                     --refname-width '$refname_width' \
                     --author-width '$author_width' \
+                    ${branch_show_args[*]} \
                 "
-
-            if "$show_remote_branches"; then
-                branch_show_cmd+=" --remotes"
-            fi
-
-            if "$show_all_branches"; then
-                branch_show_cmd+=" --all"
-            fi
 
             local lines; lines="$(eval "$branch_show_cmd" | eval "$fzf_cmd" | cut -d " " -f 1)"
 
@@ -419,7 +426,10 @@ fgb() {
                 manage)
                     __fgb_git_branch_manage "$@"
                     ;;
-                -h | --help) echo "${usage_message[branch]}" ;;
+                -h | --help)
+                    echo "${usage_message[branch]}"
+                    return
+                    ;;
                 --* | -*)
                     echo "error: unknown option: \`$subcommand'" >&2
                     echo "${usage_message[branch]}" >&2
@@ -579,10 +589,9 @@ fgb() {
             fi
 
             local sort_order="-committerdate"
-            local show_remote_branches=false
-            local show_all_branches=false
             local force=false
             local positional_args=()
+            local branch_show_args=()
 
             while [ $# -gt 0 ]; do
                 case "$1" in
@@ -593,14 +602,20 @@ fgb() {
                     --sort=*)
                         sort_order="${1#*=}"
                         ;;
-                    -r | --remotes)
-                        show_remote_branches=true
-                        ;;
-                    -a | --all)
-                        show_all_branches=true
+                    -a | --all | -r | --remotes)
+                        branch_show_args+=("$1")
                         ;;
                     -f | --force)
                         force=true
+                        ;;
+                    -h | --help)
+                        echo "${usage_message[worktree_manage]}"
+                        return
+                        ;;
+                    --* | -*)
+                        echo "error: unknown option: \`$1'" >&2
+                        echo "${usage_message[worktree_manage]}" >&2
+                        return 1
                         ;;
                     *)
                         positional_args+=("$1")
@@ -625,15 +640,8 @@ fgb() {
                     --sort $sort_order \
                     --refname-width $refname_width \
                     --author-width $author_width \
+                    ${branch_show_args[*]} \
                 "
-
-            if "$show_remote_branches"; then
-                branch_show_cmd+=" --remotes"
-            fi
-
-            if "$show_all_branches"; then
-                branch_show_cmd+=" --all"
-            fi
 
             local lines; lines="$(eval "$branch_show_cmd" | eval "$fzf_cmd" | cut -d " " -f 1)"
 
@@ -666,7 +674,10 @@ fgb() {
                     __fgb_git_worktree_manage "$@"
                     exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                     ;;
-                -h | --help) echo "${usage_message[worktree]}" ;;
+                -h | --help)
+                    echo "${usage_message[worktree]}"
+                    return
+                    ;;
                 --* | -*)
                     echo "error: unknown option: \`$subcommand'" >&2
                     echo "${usage_message[worktree]}" >&2
@@ -710,8 +721,8 @@ fgb() {
             |Usage: fgb <command> [<args>]
             |
             |Commands:
-            |  branch    Manage Git branches
-            |  worktree  Manage Git worktrees
+            |  branch    Manage branches in a git repository
+            |  worktree  Manage worktrees in a git repository
             |
             |Options:
             |  -v, --version
@@ -722,27 +733,118 @@ fgb() {
             ")"
 
             ["branch"]="$(__fgb_stdout_unindented "
-            |Usage: fgb $fgb_command <subcommand> [<args>]
+            |Usage: fgb branch <subcommand> [<args>]
             |
             |Subcommands:
             |  show    Show branches in a git repository
-            |  manage  Manage Git branches
+            |  manage  Switch to or delete branches in a git repository
             |
             |Options:
             |  -h, --help
             |          Show help message
             ")"
 
+            ["branch_show"]="$(__fgb_stdout_unindented "
+            |Usage: fgb branch show [<args>]
+            |
+            |Show branches in a git repository
+            |
+            |Options:
+            |  --refname-width=<width>
+            |          Set the width of the refname column
+            |
+            |  --author-width=<width>
+            |          Set the width of the author column
+            |
+            |  -s, --sort=<sort>
+            |          Sort branches by <sort>:
+            |            refname (default)
+            |
+            |  -r, --remotes
+            |          Show remote branches
+            |
+            |  -a, --all
+            |          Show all branches
+            |
+            |  -h, --help
+            |          Show help message
+            ")"
+
+            ["branch_manage"]="$(__fgb_stdout_unindented "
+            |Usage: fgb branch manage [<args>] [<query>]
+            |
+            |Switch to or delete branches in a git repository
+            |
+            |Query:
+            |  <query>  Query to filter branches by using fzf (optional)
+            |
+            |Options:
+            |  --refname-width=<width>
+            |          Set the width of the refname column
+            |
+            |  --author-width=<width>
+            |          Set the width of the author column
+            |
+            |  -s, --sort=<sort>
+            |          Sort branches by <sort>:
+            |            -committerdate (default)
+            |
+            |  -r, --remotes
+            |          Show remote branches
+            |
+            |  -a, --all
+            |          Show all branches
+            |
+            |  -f, --force
+            |          Suppress confirmation dialog for non-dangerous operations
+            |
+            |  -h, --help
+            |          Show help message
+            ")"
+
             ["worktree"]="$(__fgb_stdout_unindented "
-            |Usage: fgb $fgb_command <subcommand> [<args>]
+            |Usage: fgb worktree <subcommand> [<args>]
             |
             |Subcommands:
-            |  manage  Manage Git worktrees
+            |  manage  Create/switch to or delete worktrees in a git repository
             |
             |Options:
             |  -h, --help
             |          Show help message
             ")"
+
+            ["worktree_manage"]="$(__fgb_stdout_unindented "
+            |Usage: fgb worktree manage [<args>] [<query>]
+            |
+            |Create/switch to or delete worktrees in a git repository
+            |
+            |Query:
+            |  <query>  Query to filter branches by using fzf (optional)
+            |
+            |Options:
+            |  --refname-width=<width>
+            |          Set the width of the refname column
+            |
+            |  --author-width=<width>
+            |          Set the width of the author column
+            |
+            |  -s, --sort=<sort>
+            |          Sort branches by <sort>:
+            |            -committerdate (default)
+            |
+            |  -r, --remotes
+            |          Show remote branches
+            |
+            |  -a, --all
+            |          Show all branches
+            |
+            |  -f, --force
+            |          Suppress confirmation dialog for non-dangerous operations
+            |
+            |  -h, --help
+            |          Show help message
+            ")"
+
         )
 
 
@@ -783,10 +885,12 @@ fgb() {
                 ;;
             -h | --help)
                 echo "${usage_message[fgb]}"
+                return
                 ;;
             -v | --version)
                 echo "$version_message"
                 echo "$copyright_message"
+                return
                 ;;
             --* | -*)
                 echo "error: unknown option: \`$fgb_command'" >&2
