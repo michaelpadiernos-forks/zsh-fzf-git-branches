@@ -222,12 +222,13 @@ fgb() {
         }
 
 
-        __fgb_git_branch_list() {
+        __fgb_branch_list() {
             # List branches in a git repository
 
             local refname_width=75
             local author_width=40
             local sort_order="refname"
+            local filter_list=""
             local list_remote_branches=false
             local list_all_branches=false
 
@@ -253,6 +254,13 @@ fgb() {
                         ;;
                     --sort=*)
                         sort_order="${1#*=}"
+                        ;;
+                    --filter)
+                        shift
+                        filter_list="$1"
+                        ;;
+                    --filter=*)
+                        filter_list="${1#*=}"
                         ;;
                     -r | --remotes)
                         list_remote_branches=true
@@ -307,9 +315,9 @@ fgb() {
                 format_string=$(__fgb_stdout_unindented "
                     |%(align:width=${refname_width})\#
                     |%(color:bold yellow)%(refname:lstrip=${type_strip[$ref_type]})\#
-                    |%(color:reset)%(end)\#
+                    |%(color:reset)%(end) \#
                     |%(align:width=${author_width})\#
-                    |%(color:green)%(committername)%(color:reset)%(end)\#
+                    |%(color:green)%(committername)%(color:reset)%(end) \#
                     |(%(color:blue)%(committerdate:relative)%(color:reset))
                 ")
                 refs=$(git for-each-ref \
@@ -317,6 +325,10 @@ fgb() {
                         --sort="$sort_order" \
                         refs/"$ref_type"
                 )
+                if [[ -n "$filter_list" ]]; then
+                    filter_list="$(tr ";, " "\n" <<< "$filter_list")"
+                    refs=$(grep -E "$filter_list" <<< "$refs")
+                fi
                 while read -r ref_name; do
                     git for-each-ref --format="$format_string" "$ref_name" --color=always
                 done <<< "$refs"
@@ -324,7 +336,7 @@ fgb() {
         }
 
 
-        __fgb_git_branch_manage() {
+        __fgb_branch_manage() {
             # Manage Git branches
 
             local sort_order="-committerdate"
@@ -343,6 +355,13 @@ fgb() {
                         ;;
                     -a | --all | -r | --remotes)
                         branch_list_args+=("$1")
+                        ;;
+                    --filter)
+                        shift
+                        branch_list_args+=("--filter $1")
+                        ;;
+                    --filter=*)
+                        branch_list_args+=("--filter ${1#*=}")
                         ;;
                     -f | --force)
                         force=true
@@ -375,7 +394,7 @@ fgb() {
             fi
 
             local branch_list_cmd="\
-                __fgb_git_branch_list \
+                __fgb_branch_list \
                     --sort $sort_order \
                     --refname-width '$refname_width' \
                     --author-width '$author_width' \
@@ -411,18 +430,18 @@ fgb() {
         }
 
 
-        __fgb_git_branch() {
+        __fgb_branch() {
             local subcommand="$1"
             shift
             case $subcommand in
                 list)
-                    __fgb_git_branch_list \
+                    __fgb_branch_list \
                         --refname-width "$refname_width" \
                         --author-width "$author_width" \
                         "$@"
                     ;;
                 manage)
-                    __fgb_git_branch_manage "$@"
+                    __fgb_branch_manage "$@"
                     ;;
                 -h | --help)
                     echo "${usage_message[branch]}"
@@ -578,7 +597,108 @@ fgb() {
         }
 
 
-        __fgb_git_worktree_manage() {
+        __fgb_git_worktree_list() {
+            # List worktrees in a git repository
+
+            if [[ -z "$(__fgb_get_bare_repo_path)" ]]; then
+                echo "Not inside a bare Git repository. Exit..."
+                return
+            fi
+
+            local sort_order="-committerdate"
+            local force=false
+            local positional_args=()
+            local branch_list_args=()
+
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                    -s | --sort)
+                        shift
+                        sort_order="$1"
+                        ;;
+                    --sort=*)
+                        sort_order="${1#*=}"
+                        ;;
+                    -h | --help)
+                        echo "${usage_message[worktree_list]}"
+                        return
+                        ;;
+                    --* | -*)
+                        echo "error: unknown option: \`$1'" >&2
+                        echo "${usage_message[worktree_list]}" >&2
+                        return 1
+                        ;;
+                    *)
+                        positional_args+=("$1")
+                        ;;
+                esac
+                shift
+            done
+
+            local wt_list; wt_list="$(git worktree list | sed '1d')"
+
+            local -A wt_branches_map
+            local branch_name line wt_branches=""
+            while IFS='' read -r line; do
+                branch_name="$(sed -n 's/.*\[\([^]]*\)\].*/\1/p' <<< "$line")"
+                wt_branches_map["$branch_name"]="$(cut -d' ' -f1 <<< "$line")"
+                wt_branches+="${branch_name}\n"
+            done <<< "$wt_list"
+            wt_branches="$(echo -en "$wt_branches")" # Remove trailing newline
+
+            local width_of_window; width_of_window=$(tput cols)
+            local wt_path_width=0
+            if [[ "$width_of_window" -gt 80 ]]; then
+                local author_width refname_width
+                refname_width="$(__fgb_get_segment_width_relative_to_window 0.27)"
+                wt_path_width="$(__fgb_get_segment_width_relative_to_window 0.40)"
+                author_width="$(__fgb_get_segment_width_relative_to_window 0.33)"
+            fi
+
+            local output
+            output="$(
+                __fgb_branch_list \
+                    --sort "$sort_order" \
+                    --refname-width "$refname_width" \
+                    --author-width "$author_width" \
+                    --filter "$wt_branches"
+            )"
+
+            refname_width="$(( refname_width + 2 ))"
+
+            # Subtract 1 from the width to account for the space between the columns
+            wt_path_width="$(( wt_path_width > 0 ? wt_path_width - 1 : 0 ))"
+
+            local key rest_of_line start_position wt_path wt_path_len
+            while IFS='' read -r line; do
+                branch_name="$(cut -d' ' -f1 <<< "$line")"
+                # shellcheck disable=SC2001
+                key="$(sed "s/\x1B\[[0-9;]*[JKmsu]//g" <<< "$branch_name")"
+                rest_of_line="$(echo "$line" | cut -d' ' -f2- | sed -e 's/^ *//')"
+                wt_path="${wt_branches_map["$key"]}"
+                wt_path_len="${#wt_path}"
+                if [ "$wt_path_width" -gt 0 ]; then
+                    if [ "$wt_path_len" -gt "$wt_path_width" ]; then
+                        start_position=$(( wt_path_len - wt_path_width + 3 ))
+                        wt_path="${wt_path:$start_position}"
+                        wt_path=".../${wt_path#*/}"
+                    fi
+                    printf \
+                        "%-${refname_width}s %-${wt_path_width}s %s\n" \
+                        "[$branch_name]" \
+                        "$wt_path" \
+                        "$rest_of_line"
+                else
+                    printf \
+                        "%-${refname_width}s %s\n" \
+                        "[$branch_name]" \
+                        "$rest_of_line"
+                fi
+            done <<< "$output"
+        }
+
+
+        __fgb_worktree_manage() {
             # Manage Git worktrees
 
             if [[ -z "$(__fgb_get_bare_repo_path)" ]]; then
@@ -602,6 +722,13 @@ fgb() {
                         ;;
                     -a | --all | -r | --remotes)
                         branch_list_args+=("$1")
+                        ;;
+                    --filter)
+                        shift
+                        branch_list_args+=("--filter $1")
+                        ;;
+                    --filter=*)
+                        branch_list_args+=("--filter ${1#*=}")
                         ;;
                     -f | --force)
                         force=true
@@ -634,7 +761,7 @@ fgb() {
             fi
 
             local branch_list_cmd="\
-                __fgb_git_branch_list \
+                __fgb_branch_list \
                     --sort $sort_order \
                     --refname-width $refname_width \
                     --author-width $author_width \
@@ -664,12 +791,16 @@ fgb() {
         }
 
 
-        __fgb_git_worktree() {
+        __fgb_worktree() {
             local subcommand="$1"
             shift
             case $subcommand in
+                list)
+                    __fgb_git_worktree_list "$@"
+                    exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
+                    ;;
                 manage)
-                    __fgb_git_worktree_manage "$@"
+                    __fgb_worktree_manage "$@"
                     exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                     ;;
                 -h | --help)
@@ -761,6 +892,9 @@ fgb() {
             |  -r, --remotes
             |          List remote branches
             |
+            |  --filter=<filter>
+            |          Filter branches by <filter> string (semicolon, new line or comma separated)
+            |
             |  -a, --all
             |          List all branches
             |
@@ -790,6 +924,9 @@ fgb() {
             |  -r, --remotes
             |          List remote branches
             |
+            |  --filter=<filter>
+            |          Filter branches by <filter> string (semicolon, new line or comma separated)
+            |
             |  -a, --all
             |          List all branches
             |
@@ -807,6 +944,29 @@ fgb() {
             |  manage  Create/switch to or delete worktrees in a git repository
             |
             |Options:
+            |  -h, --help
+            |          Show help message
+            ")"
+
+            ["worktree_list"]="$(__fgb_stdout_unindented "
+            |Usage: fgb worktree list [<args>] [<query>]
+            |
+            |Create/switch to or delete worktrees in a git repository
+            |
+            |Query:
+            |  <query>  Query to filter branches by using fzf (optional)
+            |
+            |Options:
+            |  --refname-width=<width>
+            |          Set the width of the refname column
+            |
+            |  --author-width=<width>
+            |          Set the width of the author column
+            |
+            |  -s, --sort=<sort>
+            |          Sort worktrees by <sort>:
+            |            -committerdate (default)
+            |
             |  -h, --help
             |          Show help message
             ")"
@@ -832,6 +992,9 @@ fgb() {
             |
             |  -r, --remotes
             |          List remote branches
+            |
+            |  --filter=<filter>
+            |          Filter branches by <filter> string (semicolon, new line or comma separated)
             |
             |  -a, --all
             |          List all branches
@@ -864,7 +1027,7 @@ fgb() {
                         return 1
                         ;;
                     *)
-                        __fgb_git_branch "$@"
+                        __fgb_branch "$@"
                         exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                         ;;
                 esac
@@ -876,7 +1039,7 @@ fgb() {
                         return 1
                         ;;
                     *)
-                        __fgb_git_worktree "$@"
+                        __fgb_worktree "$@"
                         exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                         ;;
                 esac
@@ -914,24 +1077,25 @@ fgb() {
 
     unset -f \
         __fgb__functions \
+        __fgb_branch \
+        __fgb_branch_list \
+        __fgb_branch_manage \
         __fgb_confirmation_dialog \
         __fgb_get_bare_repo_path \
         __fgb_get_list_of_worktrees \
         __fgb_get_segment_width_relative_to_window \
         __fgb_get_worktree_path_for_branch \
-        __fgb_git_branch \
         __fgb_git_branch_delete \
-        __fgb_git_branch_manage \
-        __fgb_git_branch_list \
-        __fgb_git_worktree \
         __fgb_git_worktree_delete \
         __fgb_git_worktree_jump_or_create \
-        __fgb_git_worktree_manage \
+        __fgb_git_worktree_list \
         __fgb_is_positive_int \
         __fgb_is_positive_int_or_float \
         __fgb_set_colors \
         __fgb_stdout_unindented \
-        __fgb_unset_colors
+        __fgb_unset_colors \
+        __fgb_worktree \
+        __fgb_worktree_manage
 
     return "$exit_code"
 }
