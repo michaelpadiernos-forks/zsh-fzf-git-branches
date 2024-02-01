@@ -78,7 +78,7 @@ fgb() {
             fi
             local width_of_window; width_of_window=$(tput cols)
             # Extract the width of the age column
-            local available_width; available_width=$(( width_of_window - 5 ))
+            local available_width; available_width=$(( width_of_window - 17 ))
             echo "$available_width $multiplier" | awk '{printf("%.0f", $1 * $2)}'
         }
 
@@ -142,9 +142,9 @@ fgb() {
                 if "$is_remote"; then
                     branch_name="${branch_name#remotes/*/}"
                     user_prompt=$(__fgb_stdout_unindented "
-                        |${col_r}WARNING:${col_reset} \#
-                        |Delete branch: '${col_b}${branch_name}${col_reset}' \#
-                        |from remote: ${col_y}${remote_name}${col_reset}?
+                        |${col_r_bold}WARNING:${col_reset} \#
+                        |Delete branch: '${col_b_bold}${branch_name}${col_reset}' \#
+                        |from remote: ${col_y_bold}${remote_name}${col_reset}?
                     ")
                     # NOTE: Avoid --force here as it's no undoable operation for remote branches
                     if __fgb_confirmation_dialog "$user_prompt"; then
@@ -152,7 +152,7 @@ fgb() {
                         exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                     fi
                 else
-                    user_prompt="${col_r}Delete${col_reset} local branch: ${branch_name}?"
+                    user_prompt="${col_r_bold}Delete${col_reset} local branch: ${branch_name}?"
                     if "$force" || __fgb_confirmation_dialog "$user_prompt"; then
                         local output
                         if ! output="$(git branch -d "$branch_name" 2>&1)"; then
@@ -163,10 +163,10 @@ fgb() {
                             fi
                             user_prompt=$(__fgb_stdout_unindented "
 
-                                |${col_r}WARNING:${col_reset} \#
-                                |The branch '${col_b}${branch_name}${col_reset}' \#
+                                |${col_r_bold}WARNING:${col_reset} \#
+                                |The branch '${col_b_bold}${branch_name}${col_reset}' \#
                                 |is not yet merged into the \#
-                                |'${col_g}${head_branch}${col_reset}' branch.
+                                |'${col_g_bold}${head_branch}${col_reset}' branch.
 
                                 |Are you sure you want to delete it?
                             ")
@@ -274,14 +274,8 @@ fgb() {
 
             local ref_type ref_name format_string refs
             for ref_type in "${ref_types[@]}"; do
-                format_string=$(__fgb_stdout_unindented "
-                    |%(align:width=${refname_width})\#
-                    |%(color:bold yellow)%(refname:lstrip=${type_strip[$ref_type]})\#
-                    |%(color:reset)%(end) \#
-                    |%(align:width=${author_width})\#
-                    |%(color:green)%(committername)%(color:reset)%(end) \#
-                    |(%(color:blue)%(committerdate:relative)%(color:reset))
-                ")
+                format_string="%(refname:lstrip=${type_strip[$ref_type]})"
+                format_string+=" %(committername) %(committerdate:relative)"
                 refs=$(git for-each-ref \
                         --format='%(refname)' \
                         --sort="$sort_order" \
@@ -292,7 +286,7 @@ fgb() {
                     refs=$(grep -E "$filter_list" <<< "$refs")
                 fi
                 while read -r ref_name; do
-                    git for-each-ref --format="$format_string" "$ref_name" --color=always
+                    git for-each-ref --format="$format_string" "$ref_name"
                 done <<< "$refs"
             done
         }
@@ -470,26 +464,26 @@ fgb() {
                         cd "$bare_path" && is_in_target_wt=true || return 1
                     fi
                     user_prompt=$(__fgb_stdout_unindented "
-                        |${col_r}Delete${col_reset} worktree: \#
-                        |${col_y}${wt_path}${col_reset}, \#
-                        |for branch '${col_b}${branch_name}${col_reset}'?
+                        |${col_r_bold}Delete${col_reset} worktree: \#
+                        |${col_y_bold}${wt_path}${col_reset}, \#
+                        |for branch '${col_b_bold}${branch_name}${col_reset}'?
                     ")
                     if "$force" || __fgb_confirmation_dialog "$user_prompt"; then
                         user_prompt=$(__fgb_stdout_unindented "
-                            |${col_g}Deleted${col_reset} worktree: \#
-                            |${col_y}${wt_path}${col_reset}, \#
-                            |for branch '${col_b}${branch_name}${col_reset}'
+                            |${col_g_bold}Deleted${col_reset} worktree: \#
+                            |${col_y_bold}${wt_path}${col_reset}, \#
+                            |for branch '${col_b_bold}${branch_name}${col_reset}'
                         ")
                         if ! git worktree remove "$branch_name"; then
                             local success_message="$user_prompt"
                             user_prompt=$(__fgb_stdout_unindented "
 
-                                |${col_r}WARNING:${col_reset} \#
+                                |${col_r_bold}WARNING:${col_reset} \#
                                 |This will permanently reset/delete the following files:
 
                                 |$(script -q /dev/null -c "git -C \"$wt_path\" status --short")
 
-                                |in the ${col_y}${wt_path}${col_reset} path.
+                                |in the ${col_y_bold}${wt_path}${col_reset} path.
 
                                 |Are you sure you want to proceed?
                             ")
@@ -535,9 +529,9 @@ fgb() {
             if [[ -n "$wt_path" ]]; then
                 if cd "$wt_path"; then
                     message=$(__fgb_stdout_unindented "
-                        |${col_g}Jumped${col_reset} to worktree: \#
-                        |${col_y}${wt_path}${col_reset}, \#
-                        |for branch '${col_b}${branch_name}${col_reset}'
+                        |${col_g_bold}Jumped${col_reset} to worktree: \#
+                        |${col_y_bold}${wt_path}${col_reset}, \#
+                        |for branch '${col_b_bold}${branch_name}${col_reset}'
                     ")
                     echo -e "$message"
                 else
@@ -549,9 +543,9 @@ fgb() {
                 if git worktree add "$wt_path" "$branch_name"; then
                     cd "$wt_path" || return 1
                     message=$(__fgb_stdout_unindented "
-                    |Worktree ${col_y}${wt_path}${col_reset} \#
-                    |for branch '${col_b}${branch_name}${col_reset}' created successfully.
-                    |${col_g}Jumped${col_reset} there.
+                    |Worktree ${col_y_bold}${wt_path}${col_reset} \#
+                    |for branch '${col_b_bold}${branch_name}${col_reset}' created successfully.
+                    |${col_g_bold}Jumped${col_reset} there.
                     ")
                     echo -e "$message"
                 fi
@@ -597,48 +591,46 @@ fgb() {
                 shift
             done
 
-            local wt_list; wt_list="$(git worktree list | sed '1d')"
+            local wt_branches wt_list
+            wt_list="$(git worktree list | sed '1d')"
+            wt_branches="$(awk '{print $3}' <<< "$wt_list" | sed 's/^.\(.*\).$/\1/')"
 
             local -A wt_branches_map
-            local branch_name line wt_branches=""
+            local branch_name
             while IFS='' read -r line; do
-                branch_name="$(awk '{print $3}' <<< "$line" |  sed 's/^.\(.*\).$/\1/')"
+                branch_name="$(awk '{print $3}' <<< "$line" | sed 's/^.\(.*\).$/\1/')"
                 wt_branches_map["$branch_name"]="$(cut -d' ' -f1 <<< "$line")"
-                wt_branches+="${branch_name}\n"
             done <<< "$wt_list"
-            wt_branches="$(echo -en "$wt_branches")" # Remove trailing newline
 
             local width_of_window; width_of_window=$(tput cols)
             local wt_path_width=0
             if [[ "$width_of_window" -gt 80 ]]; then
                 local author_width refname_width
                 refname_width="$(__fgb_get_segment_width_relative_to_window 0.27)"
-                wt_path_width="$(__fgb_get_segment_width_relative_to_window 0.40)"
-                author_width="$(__fgb_get_segment_width_relative_to_window 0.33)"
+                wt_path_width="$(__fgb_get_segment_width_relative_to_window 0.45)"
+                author_width="$(__fgb_get_segment_width_relative_to_window 0.28)"
             fi
 
             local output
             output="$(
                 __fgb_branch_list \
                     --sort "$sort_order" \
-                    --refname-width "$refname_width" \
-                    --author-width "$author_width" \
                     --filter "$wt_branches"
             )"
-
-            refname_width="$(( refname_width + 2 ))"
+            refname_width="$(( refname_width + 11 ))" # Account non-printable color codes
 
             # Subtract 1 from the width to account for the space between the columns
             wt_path_width="$(( wt_path_width > 0 ? wt_path_width - 1 : 0 ))"
-
-            local key rest_of_line start_position wt_path wt_path_len
+            local start_position wt_path wt_path_len committername commiterdate
             while IFS='' read -r line; do
                 branch_name="$(cut -d' ' -f1 <<< "$line")"
-                # shellcheck disable=SC2001
-                key="$(sed "s/\x1B\[[0-9;]*[JKmsu]//g" <<< "$branch_name")"
-                rest_of_line="$(echo "$line" | cut -d' ' -f2- | sed -e 's/^ *//')"
-                wt_path="${wt_branches_map["$key"]}"
+                committername="$(cut -d' ' -f2 <<< "$line")"
+                commiterdate="$(cut -d' ' -f3- <<< "$line")"
+                wt_path="${wt_branches_map["$branch_name"]}"
                 wt_path_len="${#wt_path}"
+                printf \
+                    "%-${refname_width}b" \
+                    "[${col_y_bold}${branch_name}${col_reset}]"
                 if [ "$wt_path_width" -gt 0 ]; then
                     if [ "$wt_path_len" -gt "$wt_path_width" ]; then
                         start_position=$(( wt_path_len - wt_path_width + 3 ))
@@ -646,16 +638,13 @@ fgb() {
                         wt_path=".../${wt_path#*/}"
                     fi
                     printf \
-                        "%-${refname_width}s %-${wt_path_width}s %s\n" \
-                        "[$branch_name]" \
-                        "$wt_path" \
-                        "$rest_of_line"
-                else
-                    printf \
-                        "%-${refname_width}s %s\n" \
-                        "[$branch_name]" \
-                        "$rest_of_line"
+                        " %-${wt_path_width}s" \
+                        "$wt_path"
                 fi
+                printf \
+                    " ${col_g}%-${author_width}s${col_reset} (${col_b}%s${col_reset})\n" \
+                    "$committername" \
+                    "$commiterdate"
             done <<< "$output"
         }
 
@@ -785,15 +774,24 @@ fgb() {
 
         __fgb_set_colors() {
             declare -g col_reset='\033[0m'
-            declare -g col_r='\033[1;31m'
-            declare -g col_g='\033[1;32m'
-            declare -g col_y='\033[1;33m'
-            declare -g col_b='\033[1;34m'
+            declare -g col_g='\033[32m'
+            declare -g col_b='\033[34m'
+            declare -g col_r_bold='\033[1;31m'
+            declare -g col_g_bold='\033[1;32m'
+            declare -g col_y_bold='\033[1;33m'
+            declare -g col_b_bold='\033[1;34m'
         }
 
 
         __fgb_unset_colors() {
-            unset col_reset col_r col_g col_y col_b
+            unset \
+                col_reset \
+                col_g \
+                col_b \
+                col_r_bold \
+                col_g_bold \
+                col_y_bold \
+                col_b_bold
         }
 
         # Define messages
