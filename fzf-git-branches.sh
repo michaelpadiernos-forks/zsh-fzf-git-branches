@@ -192,8 +192,13 @@ fgb() {
                 else
                     user_prompt="${col_r}Delete${col_reset} local branch: ${branch_name}?"
                     if "$force" || __fgb_confirmation_dialog "$user_prompt"; then
-                        if ! git branch -d "$branch_name"; then
+                        local output
+                        if ! output="$(git branch -d "$branch_name" 2>&1)"; then
                             local head_branch; head_branch="$(git rev-parse --abbrev-ref HEAD)"
+                            echo "$output" >&2
+                            if ! grep -q "^error: .* is not fully merged\.$" <<< "$output"; then
+                                continue
+                            fi
                             user_prompt=$(__fgb_stdout_unindented "
 
                                 |${col_r}WARNING:${col_reset} \#
