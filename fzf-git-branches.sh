@@ -217,14 +217,14 @@ fgb() {
         }
 
 
-        __fgb_git_branch_show() {
-            # Show branches in a git repository
+        __fgb_git_branch_list() {
+            # List branches in a git repository
 
             local refname_width=75
             local author_width=40
             local sort_order="refname"
-            local show_remote_branches=false
-            local show_all_branches=false
+            local list_remote_branches=false
+            local list_all_branches=false
 
             while [ $# -gt 0 ]; do
                 case "$1" in
@@ -250,18 +250,18 @@ fgb() {
                         sort_order="${1#*=}"
                         ;;
                     -r | --remotes)
-                        show_remote_branches=true
+                        list_remote_branches=true
                         ;;
                     -a | --all)
-                        show_all_branches=true
+                        list_all_branches=true
                         ;;
                     -h | --help)
-                        echo "${usage_message[branch_show]}"
+                        echo "${usage_message[branch_list]}"
                         return
                         ;;
                     --* | -*)
                         echo "error: unknown option: \`$1'" >&2
-                        echo "${usage_message[branch_show]}" >&2
+                        echo "${usage_message[branch_list]}" >&2
                         return 1
                         ;;
                     *)
@@ -281,13 +281,13 @@ fgb() {
             done
 
             local ref_types=()
-            if "$show_remote_branches"; then
+            if "$list_remote_branches"; then
                 ref_types=("remotes")
             else
                 ref_types=("heads")
             fi
 
-            if "$show_all_branches"; then
+            if "$list_all_branches"; then
                 ref_types=("heads" "remotes")
             fi
 
@@ -325,7 +325,7 @@ fgb() {
             local sort_order="-committerdate"
             local force=false
             local positional_args=()
-            local branch_show_args=()
+            local branch_list_args=()
 
             while [ $# -gt 0 ]; do
                 case "$1" in
@@ -337,7 +337,7 @@ fgb() {
                         sort_order="${1#*=}"
                         ;;
                     -a | --all | -r | --remotes)
-                        branch_show_args+=("$1")
+                        branch_list_args+=("$1")
                         ;;
                     -f | --force)
                         force=true
@@ -369,15 +369,15 @@ fgb() {
                 fzf_cmd+=" --query='${positional_args[*]}'"
             fi
 
-            local branch_show_cmd="\
-                __fgb_git_branch_show \
+            local branch_list_cmd="\
+                __fgb_git_branch_list \
                     --sort $sort_order \
                     --refname-width '$refname_width' \
                     --author-width '$author_width' \
-                    ${branch_show_args[*]} \
+                    ${branch_list_args[*]} \
                 "
 
-            local lines; lines="$(eval "$branch_show_cmd" | eval "$fzf_cmd" | cut -d " " -f 1)"
+            local lines; lines="$(eval "$branch_list_cmd" | eval "$fzf_cmd" | cut -d " " -f 1)"
 
             if [[ -z "$lines" ]]; then
                 return
@@ -410,8 +410,8 @@ fgb() {
             local subcommand="$1"
             shift
             case $subcommand in
-                show)
-                    __fgb_git_branch_show \
+                list)
+                    __fgb_git_branch_list \
                         --refname-width "$refname_width" \
                         --author-width "$author_width" \
                         "$@"
@@ -584,7 +584,7 @@ fgb() {
             local sort_order="-committerdate"
             local force=false
             local positional_args=()
-            local branch_show_args=()
+            local branch_list_args=()
 
             while [ $# -gt 0 ]; do
                 case "$1" in
@@ -596,7 +596,7 @@ fgb() {
                         sort_order="${1#*=}"
                         ;;
                     -a | --all | -r | --remotes)
-                        branch_show_args+=("$1")
+                        branch_list_args+=("$1")
                         ;;
                     -f | --force)
                         force=true
@@ -628,15 +628,15 @@ fgb() {
                 fzf_cmd+=" --query='${positional_args[*]}'"
             fi
 
-            local branch_show_cmd="\
-                __fgb_git_branch_show \
+            local branch_list_cmd="\
+                __fgb_git_branch_list \
                     --sort $sort_order \
                     --refname-width $refname_width \
                     --author-width $author_width \
-                    ${branch_show_args[*]} \
+                    ${branch_list_args[*]} \
                 "
 
-            local lines; lines="$(eval "$branch_show_cmd" | eval "$fzf_cmd" | cut -d " " -f 1)"
+            local lines; lines="$(eval "$branch_list_cmd" | eval "$fzf_cmd" | cut -d " " -f 1)"
 
             if [[ -z "$lines" ]]; then
                 return
@@ -729,7 +729,7 @@ fgb() {
             |Usage: fgb branch <subcommand> [<args>]
             |
             |Subcommands:
-            |  show    Show branches in a git repository
+            |  list    List branches in a git repository
             |  manage  Switch to or delete branches in a git repository
             |
             |Options:
@@ -737,10 +737,10 @@ fgb() {
             |          Show help message
             ")"
 
-            ["branch_show"]="$(__fgb_stdout_unindented "
-            |Usage: fgb branch show [<args>]
+            ["branch_list"]="$(__fgb_stdout_unindented "
+            |Usage: fgb branch list [<args>]
             |
-            |Show branches in a git repository
+            |List branches in a git repository
             |
             |Options:
             |  --refname-width=<width>
@@ -754,10 +754,10 @@ fgb() {
             |            refname (default)
             |
             |  -r, --remotes
-            |          Show remote branches
+            |          List remote branches
             |
             |  -a, --all
-            |          Show all branches
+            |          List all branches
             |
             |  -h, --help
             |          Show help message
@@ -783,10 +783,10 @@ fgb() {
             |            -committerdate (default)
             |
             |  -r, --remotes
-            |          Show remote branches
+            |          List remote branches
             |
             |  -a, --all
-            |          Show all branches
+            |          List all branches
             |
             |  -f, --force
             |          Suppress confirmation dialog for non-dangerous operations
@@ -826,10 +826,10 @@ fgb() {
             |            -committerdate (default)
             |
             |  -r, --remotes
-            |          Show remote branches
+            |          List remote branches
             |
             |  -a, --all
-            |          Show all branches
+            |          List all branches
             |
             |  -f, --force
             |          Suppress confirmation dialog for non-dangerous operations
@@ -917,7 +917,7 @@ fgb() {
         __fgb_git_branch \
         __fgb_git_branch_delete \
         __fgb_git_branch_manage \
-        __fgb_git_branch_show \
+        __fgb_git_branch_list \
         __fgb_git_worktree \
         __fgb_git_worktree_delete \
         __fgb_git_worktree_jump_or_create \
