@@ -34,9 +34,7 @@ fgb() {
 
             local user_prompt="${1:-Are you sure?}"
             local read_cmd ANS
-            local in_zsh=false
-            if [[ -n "$ZSH_VERSION" ]]; then
-                in_zsh=true
+            if [[ -n "${ZSH_VERSION-}" ]]; then
                 read_cmd="read -k 1 ANS"
             else
                 read_cmd="read -n 1 ANS"
@@ -44,16 +42,11 @@ fgb() {
 
             echo -en "$user_prompt (y|N): "
             eval "$read_cmd"
+            echo # Move to the next line for a cleaner output
 
             case "$ANS" in
-                [yY])
-                    "$in_zsh" && echo # Move to the next line for a cleaner output
-                    return 0
-                    ;;
-                *)
-                    "$in_zsh" && echo # Move to the next line for a cleaner output
-                    return 1
-                    ;;
+                [yY]) return 0 ;;
+                *) return 1 ;;
             esac
         }
 
