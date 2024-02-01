@@ -51,23 +51,6 @@ fgb() {
         }
 
 
-        __fgb_get_bare_repo_path() {
-            # Get the path to the bare repository
-            git worktree list --porcelain | \
-                grep -E -B 2 "^bare$" | \
-                grep -E "^worktree" | \
-                cut -d " " -f 2
-        }
-
-
-        __fgb_get_list_of_worktrees() {
-            # Get a list of worktrees
-            git worktree list --porcelain | \
-                grep -E "^branch refs/heads/" | \
-                sed "s|branch refs/heads/||"
-        }
-
-
         __fgb_is_positive_int_or_float() {
             # Check if the argument is a positive integer or a floating-point number
             if [[ $# -eq 0 ]]; then
@@ -97,27 +80,6 @@ fgb() {
             # Extract the width of the age column
             local available_width; available_width=$(( width_of_window - 5 ))
             echo "$available_width $multiplier" | awk '{printf("%.0f", $1 * $2)}'
-        }
-
-
-        __fgb_get_worktree_path_for_branch() {
-            # Get the path to the worktree for a given branch
-
-            if [ $# -eq 0 ]; then
-                echo "Missing argument: branch name"
-                return 1
-            fi
-            local branch_name="$1"
-            local worktrees; worktrees="$(__fgb_get_list_of_worktrees)"
-            local exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
-            while IFS= read -r line; do
-                if [[ "$line" == "$branch_name" ]]; then
-                    git worktree list --porcelain | \
-                        grep -E -B 2 "^branch refs/heads/${branch_name}$" | \
-                        grep -E "^worktree" | \
-                        cut -d " " -f 2
-                fi
-            done <<< "$worktrees"
         }
 
 
@@ -401,7 +363,7 @@ fgb() {
                     ${branch_list_args[*]} \
                 "
 
-            local lines; lines="$(eval "$branch_list_cmd" | eval "$fzf_cmd" | cut -d " " -f 1)"
+            local lines; lines="$(eval "$branch_list_cmd" | eval "$fzf_cmd" | cut -d' ' -f1)"
 
             if [[ -z "$lines" ]]; then
                 return
@@ -492,7 +454,7 @@ fgb() {
             fi
 
             local worktrees_to_delete="${positional_args[*]}"
-            local bare_path; bare_path="$(__fgb_get_bare_repo_path)"
+            local bare_path; bare_path="$(git worktree list | grep " (bare)$" | cut -d' ' -f1)"
             local exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
             local branch_name wt_path user_prompt
             while IFS='' read -r branch_name; do
@@ -501,7 +463,7 @@ fgb() {
                     branch_name="${branch_name#*/}"
                     branch_name="${branch_name#*/}"
                 fi
-                wt_path="$(__fgb_get_worktree_path_for_branch "$branch_name")"
+                wt_path="$(git worktree list | grep " \[${branch_name}\]$" | cut -d' ' -f1)"
                 if [[ -n "$wt_path" ]]; then
                     local is_in_target_wt=false
                     if [[ "$PWD" == "$wt_path" ]]; then
@@ -568,7 +530,7 @@ fgb() {
                 branch_name="${branch_name#*/}"
             fi
             local wt_path
-            wt_path="$(__fgb_get_worktree_path_for_branch "$branch_name")"
+            wt_path="$(git worktree list | grep " \[${branch_name}\]$" | cut -d' ' -f1)"
             local message
             if [[ -n "$wt_path" ]]; then
                 if cd "$wt_path"; then
@@ -582,7 +544,7 @@ fgb() {
                     return 1
                 fi
             else
-                local bare_path; bare_path="$(__fgb_get_bare_repo_path)"
+                local bare_path; bare_path="$(git worktree list | grep " (bare)$" | cut -d' ' -f1)"
                 local wt_path="${bare_path}/${branch_name}"
                 if git worktree add "$wt_path" "$branch_name"; then
                     cd "$wt_path" || return 1
@@ -600,7 +562,7 @@ fgb() {
         __fgb_git_worktree_list() {
             # List worktrees in a git repository
 
-            if [[ -z "$(__fgb_get_bare_repo_path)" ]]; then
+            if [[ -z "$(git worktree list | grep " (bare)$" | cut -d' ' -f1)" ]]; then
                 echo "Not inside a bare Git repository. Exit..."
                 return
             fi
@@ -640,7 +602,7 @@ fgb() {
             local -A wt_branches_map
             local branch_name line wt_branches=""
             while IFS='' read -r line; do
-                branch_name="$(sed -n 's/.*\[\([^]]*\)\].*/\1/p' <<< "$line")"
+                branch_name="$(awk '{print $3}' <<< "$line" |  sed 's/^.\(.*\).$/\1/')"
                 wt_branches_map["$branch_name"]="$(cut -d' ' -f1 <<< "$line")"
                 wt_branches+="${branch_name}\n"
             done <<< "$wt_list"
@@ -701,7 +663,7 @@ fgb() {
         __fgb_worktree_manage() {
             # Manage Git worktrees
 
-            if [[ -z "$(__fgb_get_bare_repo_path)" ]]; then
+            if [[ -z "$(git worktree list | grep " (bare)$" | cut -d' ' -f1)" ]]; then
                 echo "Not inside a bare Git repository. Exit..."
                 return
             fi
@@ -768,7 +730,7 @@ fgb() {
                     ${branch_list_args[*]} \
                 "
 
-            local lines; lines="$(eval "$branch_list_cmd" | eval "$fzf_cmd" | cut -d " " -f 1)"
+            local lines; lines="$(eval "$branch_list_cmd" | eval "$fzf_cmd" | cut -d' ' -f1)"
 
             if [[ -z "$lines" ]]; then
                 return
@@ -1081,10 +1043,7 @@ fgb() {
         __fgb_branch_list \
         __fgb_branch_manage \
         __fgb_confirmation_dialog \
-        __fgb_get_bare_repo_path \
-        __fgb_get_list_of_worktrees \
         __fgb_get_segment_width_relative_to_window \
-        __fgb_get_worktree_path_for_branch \
         __fgb_git_branch_delete \
         __fgb_git_worktree_delete \
         __fgb_git_worktree_jump_or_create \
