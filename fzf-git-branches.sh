@@ -617,7 +617,6 @@ fgb() {
                     --sort "$sort_order" \
                     --filter "$wt_branches"
             )"
-            refname_width="$(( refname_width + 11 ))" # Account non-printable color codes
 
             # Subtract 1 from the width to account for the space between the columns
             wt_path_width="$(( wt_path_width > 0 ? wt_path_width - 1 : 0 ))"
@@ -629,8 +628,8 @@ fgb() {
                 wt_path="${wt_branches_map["$branch_name"]}"
                 wt_path_len="${#wt_path}"
                 printf \
-                    "%-${refname_width}b" \
-                    "[${col_y_bold}${branch_name}${col_reset}]"
+                    "${col_y_bold}%-${refname_width}s${col_reset}" \
+                    "$branch_name"
                 if [ "$wt_path_width" -gt 0 ]; then
                     if [ "$wt_path_len" -gt "$wt_path_width" ]; then
                         start_position=$(( wt_path_len - wt_path_width + 3 ))
