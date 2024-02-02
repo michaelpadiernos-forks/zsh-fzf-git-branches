@@ -274,8 +274,9 @@ fgb() {
 
             local ref_type ref_name format_string refs
             for ref_type in "${ref_types[@]}"; do
-                format_string="%(refname:lstrip=${type_strip[$ref_type]})"
-                format_string+=" %(committername) %(committerdate:relative)"
+                # Use ` |@| ` as a delimiter to avoid conflicts with special chars in the output
+                format_string="%(refname:lstrip=${type_strip[$ref_type]}) |@| "
+                format_string+="%(committername) |@| %(committerdate:relative)"
                 refs=$(git for-each-ref \
                         --format='%(refname)' \
                         --sort="$sort_order" \
@@ -597,19 +598,12 @@ fgb() {
 
             local -A wt_branches_map
             local branch_name
+            local -a branches_array
             while IFS='' read -r line; do
                 branch_name="$(awk '{print $3}' <<< "$line" | sed 's/^.\(.*\).$/\1/')"
                 wt_branches_map["$branch_name"]="$(cut -d' ' -f1 <<< "$line")"
+                branches_array+=("$branch_name")
             done <<< "$wt_list"
-
-            local width_of_window; width_of_window=$(tput cols)
-            local wt_path_width=0
-            if [[ "$width_of_window" -gt 80 ]]; then
-                local author_width refname_width
-                refname_width="$(__fgb_get_segment_width_relative_to_window 0.27)"
-                wt_path_width="$(__fgb_get_segment_width_relative_to_window 0.45)"
-                author_width="$(__fgb_get_segment_width_relative_to_window 0.28)"
-            fi
 
             local output
             output="$(
@@ -618,32 +612,71 @@ fgb() {
                     --filter "$wt_branches"
             )"
 
-            # Subtract 1 from the width to account for the space between the columns
-            wt_path_width="$(( wt_path_width > 0 ? wt_path_width - 1 : 0 ))"
-            local start_position wt_path wt_path_len committername commiterdate
+            # Calculate column widths
+            local \
+                branch \
+                branch_width \
+                branch_max=0 \
+                wt_path \
+                wt_path_width \
+                wt_path_max=0 \
+                author_name \
+                author_width \
+                author_max=0
+            for branch in "${branches_array[@]}"; do
+                branch_width="${#branch}"
+                branch_max="$(( branch_width > branch_max ? branch_width : branch_max ))"
+                wt_path="${wt_branches_map["$branch"]}"
+                wt_path_width="${#wt_path}"
+                wt_path_max="$(( wt_path_width > wt_path_max ? wt_path_width : wt_path_max ))"
+                author_name="$(git log -1 --pretty=format:"%cn" "$branch")"
+                author_width="${#author_name}"
+                author_max="$(( author_width > author_max ? author_width : author_max ))"
+            done
+
+
+            local width_of_window; width_of_window=$(tput cols)
+
+            local total_width wt_path_width_limit author_date_width=17 # Example: (99 minutes ago)
+            total_width="$(( branch_max + wt_path_max + author_max + author_date_width + 3 ))"
+            wt_path_width_limit="$((
+                    total_width > width_of_window ?
+                    wt_path_max + width_of_window - total_width :
+                    wt_path_max
+            ))"
+
+            # Calculate spacers
+            local spacer
+            spacer="$(
+                echo "$width_of_window $total_width" | \
+                    awk '{printf("%.0f", ($1 - $2) / 3)}'
+            )"
+            if [ "$spacer" -lt 0 ]; then
+                spacer=0
+            else
+                spacer=$(( spacer < 3 ? spacer : 3 ))
+            fi
+
+            local start_position
             while IFS='' read -r line; do
-                branch_name="$(cut -d' ' -f1 <<< "$line")"
-                committername="$(cut -d' ' -f2 <<< "$line")"
-                commiterdate="$(cut -d' ' -f3- <<< "$line")"
+                branch_name="$(awk -F ' \\|@\\| ' '{print $1}' <<< "$line")"
+                author_name="$(awk -F ' \\|@\\| ' '{print $2}' <<< "$line")"
+                author_date="$(awk -F ' \\|@\\| ' '{print $3}' <<< "$line")"
                 wt_path="${wt_branches_map["$branch_name"]}"
-                wt_path_len="${#wt_path}"
-                printf \
-                    "${col_y_bold}%-${refname_width}s${col_reset}" \
-                    "$branch_name"
-                if [ "$wt_path_width" -gt 0 ]; then
-                    if [ "$wt_path_len" -gt "$wt_path_width" ]; then
-                        start_position=$(( wt_path_len - wt_path_width + 3 ))
+                wt_path_width="${#wt_path}"
+                printf "${col_y_bold}%-${branch_max}s${col_reset}" "$branch_name"
+                if [ "$wt_path_width_limit" -gt 10 ]; then
+                    if [ "$wt_path_width" -gt "$wt_path_width_limit" ]; then
+                        start_position=$(( wt_path_width - wt_path_width_limit + 3 ))
                         wt_path="${wt_path:$start_position}"
                         wt_path=".../${wt_path#*/}"
                     fi
-                    printf \
-                        " %-${wt_path_width}s" \
-                        "$wt_path"
+                    printf "%${spacer}s%-${wt_path_width_limit}s" " " "$wt_path"
                 fi
                 printf \
-                    " ${col_g}%-${author_width}s${col_reset} (${col_b}%s${col_reset})\n" \
-                    "$committername" \
-                    "$commiterdate"
+                    "%${spacer}s${col_g}%-${author_max}s${col_reset}" " " "$author_name"
+                printf \
+                    "%${spacer}s(${col_b}%s${col_reset})\n" " " "$author_date"
             done <<< "$output"
         }
 
