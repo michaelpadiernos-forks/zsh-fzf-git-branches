@@ -76,9 +76,8 @@ fgb() {
             else
                 local multiplier; multiplier="$1"
             fi
-            local width_of_window; width_of_window=$(tput cols)
             # Extract the width of the age column
-            local available_width; available_width=$(( width_of_window - 17 ))
+            local available_width; available_width=$(( WIDTH_OF_WINDOW - 17 ))
             echo "$available_width $multiplier" | awk '{printf("%.0f", $1 * $2)}'
         }
 
@@ -525,7 +524,6 @@ fgb() {
             fi
 
             local worktrees_to_delete="${positional_args[*]}"
-            local bare_path; bare_path="$(git worktree list | grep " (bare)$" | cut -d' ' -f1)"
             local exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
             local branch_name wt_path user_prompt
             while IFS='' read -r branch_name; do
@@ -538,7 +536,7 @@ fgb() {
                 if [[ -n "$wt_path" ]]; then
                     local is_in_target_wt=false
                     if [[ "$PWD" == "$wt_path" ]]; then
-                        cd "$bare_path" && is_in_target_wt=true || return 1
+                        cd "$g_bare_repo_path" && is_in_target_wt=true || return 1
                     fi
                     user_prompt=$(__fgb_stdout_unindented "
                         |${col_r_bold}Delete${col_reset} worktree: \#
@@ -615,8 +613,7 @@ fgb() {
                     return 1
                 fi
             else
-                local bare_path; bare_path="$(git worktree list | grep " (bare)$" | cut -d' ' -f1)"
-                local wt_path="${bare_path}/${branch_name}"
+                local wt_path="${g_bare_repo_path}/${branch_name}"
                 if git worktree add "$wt_path" "$branch_name"; then
                     cd "$wt_path" || return 1
                     message=$(__fgb_stdout_unindented "
@@ -633,7 +630,7 @@ fgb() {
         __fgb_worktree_list() {
             # List worktrees in a git repository
 
-            if [[ -z "$(git worktree list | grep " (bare)$" | cut -d' ' -f1)" ]]; then
+            if ! git worktree list | grep -q " (bare)$"; then
                 echo "Not inside a bare Git repository. Exit..."
                 return
             fi
@@ -663,25 +660,11 @@ fgb() {
                 shift
             done
 
-            local wt_branches wt_list
-            wt_list="$(git worktree list | sed '1d')"
-            # Remove brackets from the branch names (3rd column in the output)
-            wt_branches="$(awk '{print $3}' <<< "$wt_list" | sed 's/^.\(.*\).$/\1/')"
-
-            local -A wt_branches_map
-            local branch
-            local -a branches_array
-            while IFS='' read -r line; do
-                branch="$(awk '{print $3}' <<< "$line" | sed 's/^.\(.*\).$/\1/')"
-                wt_branches_map["$branch"]="$(cut -d' ' -f1 <<< "$line")"
-                branches_array+=("$branch")
-            done <<< "$wt_list"
-
             local sorted_branches_list
             if ! sorted_branches_list="$(
                 __fgb_git_branch_list \
                     --sort "$sort_order" \
-                    --filter "$wt_branches"
+                    --filter "$g_worktree_branches"
                 )"; then
                 echo -e "$sorted_branches_list"
                 return 1
@@ -689,6 +672,7 @@ fgb() {
 
             # Calculate column widths
             local \
+                branch \
                 branch_width \
                 branch_max=0 \
                 wt_path \
@@ -697,32 +681,29 @@ fgb() {
                 author_name \
                 author_width \
                 author_max=0
-            for branch in "${branches_array[@]}"; do
+            while IFS='' read -r branch; do
                 branch_width="${#branch}"
                 branch_max="$(( branch_width > branch_max ? branch_width : branch_max ))"
-                wt_path="${wt_branches_map["$branch"]}"
+                wt_path="${g_worktree_path_map["$branch"]}"
                 wt_path_width="${#wt_path}"
                 wt_path_max="$(( wt_path_width > wt_path_max ? wt_path_width : wt_path_max ))"
-                author_name="$(git log -1 --pretty=format:"%cn" "$branch")"
+                author_name="${g_worktree_author_map["$branch"]}"
                 author_width="${#author_name}"
                 author_max="$(( author_width > author_max ? author_width : author_max ))"
-            done
-
-
-            local width_of_window; width_of_window=$(tput cols)
+            done <<< "$g_worktree_branches"
 
             local total_width wt_path_width_limit author_date_width=17 # Example: (99 minutes ago)
             total_width="$(( branch_max + wt_path_max + author_max + author_date_width + 3 ))"
             wt_path_width_limit="$((
-                    total_width > width_of_window ?
-                    wt_path_max + width_of_window - total_width :
+                    total_width > WIDTH_OF_WINDOW ?
+                    wt_path_max + WIDTH_OF_WINDOW - total_width :
                     wt_path_max
             ))"
 
             # Calculate spacers
             local spacer
             spacer="$(
-                echo "$width_of_window $total_width" | \
+                echo "$WIDTH_OF_WINDOW $total_width" | \
                     awk '{printf("%.0f", ($1 - $2) / 3)}'
             )"
             if [ "$spacer" -lt 0 ]; then
@@ -733,9 +714,9 @@ fgb() {
 
             local start_position
             while IFS='' read -r branch; do
-                author_name="$(git log -1 --pretty=format:"%cn" "$branch")"
-                author_date="$(git log -1 --format="%cd" --date=relative "$branch")"
-                wt_path="${wt_branches_map["$branch"]}"
+                author_name="${g_worktree_author_map["$branch"]}"
+                author_date="${g_worktree_date_map["$branch"]}"
+                wt_path="${g_worktree_path_map["$branch"]}"
                 wt_path_width="${#wt_path}"
                 # Adjust the branch name column width based on the number of color code characters
                 printf "%-$(( branch_max + 13 ))b" "[${col_y_bold}$branch${col_reset}]"
@@ -886,6 +867,57 @@ fgb() {
             declare -g col_g_bold='\033[1;32m'
             declare -g col_y_bold='\033[1;33m'
             declare -g col_b_bold='\033[1;34m'
+        }
+
+
+        __fgb_set_worktree_vars() {
+            # Define worktree related variables
+
+            declare -g g_bare_repo_path
+            if ! g_bare_repo_path="$(
+                git worktree list | \
+                    grep " (bare)$" | \
+                    rev | \
+                    cut -d' ' -f2- | \
+                    sed 's/^[[:space:]]*//' | \
+                    rev
+                )"; then
+                echo "Not inside a bare Git repository. Exit..."
+                unset g_bare_repo_path
+                return 42
+            fi
+
+            local wt_list
+            wt_list="$(git worktree list | sed '1d')"
+
+            declare -g g_worktree_branches
+            # Remove brackets from the branch names (3rd column in the output) using sed
+            g_worktree_branches="$(rev <<< "$wt_list" | cut -d' ' -f1 | rev | sed 's/^.\(.*\).$/\1/')"
+
+            declare -g -A g_worktree_path_map g_worktree_author_map g_worktree_date_map
+            local branch line
+            while IFS='' read -r line; do
+                branch="$(rev <<< "$line" | cut -d' ' -f1 | rev | sed 's/^.\(.*\).$/\1/')"
+                g_worktree_path_map["$branch"]="$(
+                    rev <<< "$line" | cut -d' ' -f3- | sed 's/^[[:space:]]*//' | rev
+                )"
+                g_worktree_author_map["$branch"]="$(git log -1 --pretty=format:"%cn" "$branch")"
+                g_worktree_date_map["$branch"]="$(
+                    git log -1 --format="%cd" --date=relative "$branch"
+                )"
+            done <<< "$wt_list"
+        }
+
+
+        __fgb_unset_worktree_vars() {
+            if [[ -n "${g_bare_repo_path-}" ]]; then
+                unset \
+                    g_bare_repo_path \
+                    g_worktree_branches \
+                    g_worktree_path_map \
+                    g_worktree_author_map \
+                    g_worktree_date_map
+            fi
         }
 
 
@@ -1062,14 +1094,14 @@ fgb() {
             |  -h, --help
             |          Show help message
             ")"
-
         )
-
 
         # Define command and adjust arguments
         local fgb_command="${1:-}"
         shift
         local fgb_subcommand="${1:-}"
+
+        local WIDTH_OF_WINDOW; WIDTH_OF_WINDOW=$(tput cols)
 
         local refname_width; refname_width="$(__fgb_get_segment_width_relative_to_window 0.67)"
         local author_width; author_width="$(__fgb_get_segment_width_relative_to_window 0.33)"
@@ -1096,6 +1128,7 @@ fgb() {
                         return 1
                         ;;
                     *)
+                        __fgb_set_worktree_vars
                         __fgb_worktree "$@"
                         exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                         ;;
@@ -1131,6 +1164,7 @@ fgb() {
     local exit_code="$?"
 
     __fgb_unset_colors
+    __fgb_unset_worktree_vars
 
     unset -f \
         __fgb__functions \
@@ -1146,8 +1180,10 @@ fgb() {
         __fgb_is_positive_int \
         __fgb_is_positive_int_or_float \
         __fgb_set_colors \
+        __fgb_set_worktree_vars \
         __fgb_stdout_unindented \
         __fgb_unset_colors \
+        __fgb_unset_worktree_vars \
         __fgb_worktree \
         __fgb_worktree_list \
         __fgb_worktree_manage
