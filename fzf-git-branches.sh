@@ -737,7 +737,8 @@ fgb() {
                 author_date="$(git log -1 --format="%cd" --date=relative "$branch")"
                 wt_path="${wt_branches_map["$branch"]}"
                 wt_path_width="${#wt_path}"
-                printf "${col_y_bold}%-${branch_max}s${col_reset}" "$branch"
+                # Adjust the branch name column width based on the number of color code characters
+                printf "%-$(( branch_max + 13 ))b" "[${col_y_bold}$branch${col_reset}]"
                 if [ "$wt_path_width_limit" -gt 10 ]; then
                     if [ "$wt_path_width" -gt "$wt_path_width_limit" ]; then
                         start_position=$(( wt_path_width - wt_path_width_limit + 3 ))
