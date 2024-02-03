@@ -892,7 +892,9 @@ fgb() {
 
             declare -g g_worktree_branches
             # Remove brackets from the branch names (3rd column in the output) using sed
-            g_worktree_branches="$(rev <<< "$wt_list" | cut -d' ' -f1 | rev | sed 's/^.\(.*\).$/\1/')"
+            g_worktree_branches="$(
+                rev <<< "$wt_list" | cut -d' ' -f1 | rev | sed 's/^.\(.*\).$/\1/'
+            )"
 
             declare -g -A g_worktree_path_map g_worktree_author_map g_worktree_date_map
             local branch line
@@ -909,19 +911,7 @@ fgb() {
         }
 
 
-        __fgb_unset_worktree_vars() {
-            if [[ -n "${g_bare_repo_path-}" ]]; then
-                unset \
-                    g_bare_repo_path \
-                    g_worktree_branches \
-                    g_worktree_path_map \
-                    g_worktree_author_map \
-                    g_worktree_date_map
-            fi
-        }
-
-
-        __fgb_unset_colors() {
+        __fgb_unset_global_variables() {
             unset \
                 col_reset \
                 col_g \
@@ -929,7 +919,12 @@ fgb() {
                 col_r_bold \
                 col_g_bold \
                 col_y_bold \
-                col_b_bold
+                col_b_bold \
+                g_bare_repo_path \
+                g_worktree_branches \
+                g_worktree_path_map \
+                g_worktree_author_map \
+                g_worktree_date_map
         }
 
         # Define messages
@@ -1163,8 +1158,7 @@ fgb() {
     __fgb__functions "$@"
     local exit_code="$?"
 
-    __fgb_unset_colors
-    __fgb_unset_worktree_vars
+    __fgb_unset_global_variables
 
     unset -f \
         __fgb__functions \
@@ -1182,8 +1176,7 @@ fgb() {
         __fgb_set_colors \
         __fgb_set_worktree_vars \
         __fgb_stdout_unindented \
-        __fgb_unset_colors \
-        __fgb_unset_worktree_vars \
+        __fgb_unset_global_variables \
         __fgb_worktree \
         __fgb_worktree_list \
         __fgb_worktree_manage
