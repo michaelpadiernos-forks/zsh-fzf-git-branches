@@ -184,7 +184,7 @@ fgb() {
         }
 
 
-        __fgb_git_branch() {
+        __fgb_git_branch_list() {
             # List branches in a git repository
 
             local sort_order="refname"
@@ -630,7 +630,7 @@ fgb() {
         }
 
 
-        __fgb_git_worktree_list() {
+        __fgb_worktree_list() {
             # List worktrees in a git repository
 
             if [[ -z "$(git worktree list | grep " (bare)$" | cut -d' ' -f1)" ]]; then
@@ -679,7 +679,7 @@ fgb() {
 
             local sorted_branches_list
             if ! sorted_branches_list="$(
-                __fgb_git_branch \
+                __fgb_git_branch_list \
                     --sort "$sort_order" \
                     --filter "$wt_branches"
                 )"; then
@@ -853,7 +853,7 @@ fgb() {
             shift
             case $subcommand in
                 list)
-                    __fgb_git_worktree_list "$@"
+                    __fgb_worktree_list "$@"
                     exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                     ;;
                 manage)
@@ -1140,15 +1140,16 @@ fgb() {
         __fgb_confirmation_dialog \
         __fgb_get_segment_width_relative_to_window \
         __fgb_git_branch_delete \
+        __fgb_git_branch_list \
         __fgb_git_worktree_delete \
         __fgb_git_worktree_jump_or_create \
-        __fgb_git_worktree_list \
         __fgb_is_positive_int \
         __fgb_is_positive_int_or_float \
         __fgb_set_colors \
         __fgb_stdout_unindented \
         __fgb_unset_colors \
         __fgb_worktree \
+        __fgb_worktree_list \
         __fgb_worktree_manage
 
     return "$exit_code"
