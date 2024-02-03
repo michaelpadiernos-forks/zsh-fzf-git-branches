@@ -184,6 +184,82 @@ fgb() {
         }
 
 
+        __fgb_git_branch() {
+            # List branches in a git repository
+
+            local sort_order="refname"
+            local filter_list=""
+            local list_remote_branches=false
+            local list_all_branches=false
+
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                    -s | --sort)
+                        shift
+                        sort_order="$1"
+                        ;;
+                    --sort=*)
+                        sort_order="${1#*=}"
+                        ;;
+                    --filter)
+                        shift
+                        filter_list="$1"
+                        ;;
+                    --filter=*)
+                        filter_list="${1#*=}"
+                        ;;
+                    -r | --remotes)
+                        list_remote_branches=true
+                        ;;
+                    -a | --all)
+                        list_all_branches=true
+                        ;;
+                    *)
+                        echo "$0: Invalid argument: $1"
+                        return 1
+                        ;;
+                esac
+                shift
+            done
+
+            local ref_types=()
+            if "$list_remote_branches"; then
+                ref_types=("remotes")
+            else
+                ref_types=("heads")
+            fi
+
+            if "$list_all_branches"; then
+                ref_types=("heads" "remotes")
+            fi
+
+            local -A type_strip
+            type_strip=(
+                ["heads"]=2
+                ["remotes"]=1
+            )
+
+            local ref_type ref_name format_string refs
+            for ref_type in "${ref_types[@]}"; do
+                refs=$(git for-each-ref \
+                        --format='%(refname)' \
+                        --sort="$sort_order" \
+                        refs/"$ref_type"
+                )
+                if [[ -n "$filter_list" ]]; then
+                    filter_list="$(tr ";, " "\n" <<< "$filter_list")"
+                    refs=$(grep -E "$filter_list" <<< "$refs")
+                fi
+                while read -r ref_name; do
+                    git \
+                        for-each-ref \
+                        --format="%(refname:lstrip=${type_strip[$ref_type]})" \
+                        "$ref_name"
+                done <<< "$refs"
+            done
+        }
+
+
         __fgb_branch_list() {
             # List branches in a git repository
 
@@ -563,9 +639,7 @@ fgb() {
             fi
 
             local sort_order="-committerdate"
-            local force=false
             local positional_args=()
-            local branch_list_args=()
 
             while [ $# -gt 0 ]; do
                 case "$1" in
@@ -580,13 +654,10 @@ fgb() {
                         echo "${usage_message[worktree_list]}"
                         return
                         ;;
-                    --* | -*)
-                        echo "error: unknown option: \`$1'" >&2
+                    *)
+                        echo "$0: Invalid argument: $1"
                         echo "${usage_message[worktree_list]}" >&2
                         return 1
-                        ;;
-                    *)
-                        positional_args+=("$1")
                         ;;
                 esac
                 shift
@@ -594,27 +665,30 @@ fgb() {
 
             local wt_branches wt_list
             wt_list="$(git worktree list | sed '1d')"
+            # Remove brackets from the branch names (3rd column in the output)
             wt_branches="$(awk '{print $3}' <<< "$wt_list" | sed 's/^.\(.*\).$/\1/')"
 
             local -A wt_branches_map
-            local branch_name
+            local branch
             local -a branches_array
             while IFS='' read -r line; do
-                branch_name="$(awk '{print $3}' <<< "$line" | sed 's/^.\(.*\).$/\1/')"
-                wt_branches_map["$branch_name"]="$(cut -d' ' -f1 <<< "$line")"
-                branches_array+=("$branch_name")
+                branch="$(awk '{print $3}' <<< "$line" | sed 's/^.\(.*\).$/\1/')"
+                wt_branches_map["$branch"]="$(cut -d' ' -f1 <<< "$line")"
+                branches_array+=("$branch")
             done <<< "$wt_list"
 
-            local output
-            output="$(
-                __fgb_branch_list \
+            local sorted_branches_list
+            if ! sorted_branches_list="$(
+                __fgb_git_branch \
                     --sort "$sort_order" \
                     --filter "$wt_branches"
-            )"
+                )"; then
+                echo -e "$sorted_branches_list"
+                return 1
+            fi
 
             # Calculate column widths
             local \
-                branch \
                 branch_width \
                 branch_max=0 \
                 wt_path \
@@ -658,13 +732,12 @@ fgb() {
             fi
 
             local start_position
-            while IFS='' read -r line; do
-                branch_name="$(awk -F ' \\|@\\| ' '{print $1}' <<< "$line")"
-                author_name="$(awk -F ' \\|@\\| ' '{print $2}' <<< "$line")"
-                author_date="$(awk -F ' \\|@\\| ' '{print $3}' <<< "$line")"
-                wt_path="${wt_branches_map["$branch_name"]}"
+            while IFS='' read -r branch; do
+                author_name="$(git log -1 --pretty=format:"%cn" "$branch")"
+                author_date="$(git log -1 --format="%cd" --date=relative "$branch")"
+                wt_path="${wt_branches_map["$branch"]}"
                 wt_path_width="${#wt_path}"
-                printf "${col_y_bold}%-${branch_max}s${col_reset}" "$branch_name"
+                printf "${col_y_bold}%-${branch_max}s${col_reset}" "$branch"
                 if [ "$wt_path_width_limit" -gt 10 ]; then
                     if [ "$wt_path_width" -gt "$wt_path_width_limit" ]; then
                         start_position=$(( wt_path_width - wt_path_width_limit + 3 ))
@@ -677,7 +750,7 @@ fgb() {
                     "%${spacer}s${col_g}%-${author_max}s${col_reset}" " " "$author_name"
                 printf \
                     "%${spacer}s(${col_b}%s${col_reset})\n" " " "$author_date"
-            done <<< "$output"
+            done <<< "$sorted_branches_list"
         }
 
 
@@ -943,18 +1016,9 @@ fgb() {
             ["worktree_list"]="$(__fgb_stdout_unindented "
             |Usage: fgb worktree list [<args>] [<query>]
             |
-            |Create/switch to or delete worktrees in a git repository
-            |
-            |Query:
-            |  <query>  Query to filter branches by using fzf (optional)
+            |List all worktrees in a bare git repository
             |
             |Options:
-            |  --refname-width=<width>
-            |          Set the width of the refname column
-            |
-            |  --author-width=<width>
-            |          Set the width of the author column
-            |
             |  -s, --sort=<sort>
             |          Sort worktrees by <sort>:
             |            -committerdate (default)
