@@ -121,7 +121,10 @@ fgb() {
                         exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                     fi
                 else
-                    user_prompt="${col_r_bold}Delete${col_reset} local branch: ${branch_name}?"
+                    user_prompt=$(__fgb_stdout_unindented "
+                        |${col_r_bold}Delete${col_reset} \#
+                        |local branch: \`${col_b_bold}${branch_name}${col_reset}'?
+                    ")
                     if "$force" || __fgb_confirmation_dialog "$user_prompt"; then
                         local output
                         if ! output="$(git branch -d "$branch_name" 2>&1)"; then
@@ -484,6 +487,7 @@ fgb() {
                 fi
                 wt_path="$(git worktree list | grep " \[${branch_name}\]$" | cut -d' ' -f1)"
                 if [[ -n "$wt_path" ]]; then
+                    # Process a branch with a corresponding worktree
                     local is_in_target_wt=false
                     if [[ "$PWD" == "$wt_path" ]]; then
                         cd "$c_bare_repo_path" && is_in_target_wt=true || return 1
@@ -524,12 +528,22 @@ fgb() {
                             fi
                         else
                             echo -e "$user_prompt"
+                            user_prompt=$(__fgb_stdout_unindented "
+                                |${col_r_bold}Delete${col_reset} the corresponding branch as well?
+                            ")
+                            if __fgb_confirmation_dialog "$user_prompt"; then
+                                __fgb_git_branch_delete "$branch_name" --force
+                            fi
                         fi
                     else
                         if "$is_in_target_wt"; then
                             cd "$wt_path" || return 1
                         fi
                     fi
+                else
+                    # Process a branch that doesn't have a corresponding worktree
+                    "$force" && force="--force" || force=""
+                    __fgb_git_branch_delete "$branch_name" "$force"
                 fi
             done <<< "$worktrees_to_delete"
         }
