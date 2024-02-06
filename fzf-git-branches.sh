@@ -1017,6 +1017,7 @@ fgb() {
             |
             |Commands:
             |  branch    Manage branches in a git repository
+            |
             |  worktree  Manage worktrees in a git repository
             |
             |Options:
@@ -1032,7 +1033,8 @@ fgb() {
             |
             |Subcommands:
             |  list    List branches in a git repository
-            |  manage  Switch to or delete branches in a git repository
+            |
+            |  manage  Switch to existing branches in the git repository or delete them
             |
             |Options:
             |  -h, --help
@@ -1050,7 +1052,7 @@ fgb() {
             |            refname (default)
             |
             |  --filter=<filter>
-            |          Filter branches by <filter> string (semicolon, new line or comma separated)
+            |          Filter branches by <filter> string (colon or comma separated)
             |
             |  -r, --remotes
             |          List remote branches
@@ -1065,10 +1067,10 @@ fgb() {
             ["branch_manage"]="$(__fgb_stdout_unindented "
             |Usage: fgb branch manage [<args>] [<query>]
             |
-            |Switch to or delete branches in a git repository
+            |Switch to existing branches in the git repository or delete them
             |
             |Query:
-            |  <query>  Query to filter branches by using fzf (optional)
+            |  <query>  Query to filter branches by using fzf
             |
             |Options:
             |  -s, --sort=<sort>
@@ -1076,7 +1078,7 @@ fgb() {
             |            -committerdate (default)
             |
             |  --filter=<filter>
-            |          Filter branches by <filter> string (semicolon, new line or comma separated)
+            |          Filter branches by <filter> string (colon or comma separated)
             |
             |  -r, --remotes
             |          List remote branches
@@ -1095,7 +1097,12 @@ fgb() {
             |Usage: fgb worktree <subcommand> [<args>]
             |
             |Subcommands:
-            |  manage  Create/switch to or delete worktrees in a git repository
+            |  list    List all worktrees in a bare git repository
+            |
+            |  manage  Switch to existing worktrees in the baregit repository or delete them
+            |
+            |  total   Create a new one, switch to existing worktrees in the bare git repository,
+            |          or delete them with corresponding branches
             |
             |Options:
             |  -h, --help
@@ -1119,10 +1126,10 @@ fgb() {
             ["worktree_manage"]="$(__fgb_stdout_unindented "
             |Usage: fgb worktree manage [<args>] [<query>]
             |
-            |Switch to or delete worktrees in a git repository
+            |Switch to existing worktrees in the bare git repository or delete them
             |
             |Query:
-            |  <query>  Query to filter branches by using fzf (optional)
+            |  <query>  Query to filter branches by using fzf
             |
             |Options:
             |  -s, --sort=<sort>
@@ -1137,12 +1144,13 @@ fgb() {
             ")"
 
             ["worktree_total"]="$(__fgb_stdout_unindented "
-            |Usage: fgb worktree manage [<args>] [<query>]
+            |Usage: fgb worktree total [<args>] [<query>]
             |
-            |Create/switch to or delete worktrees in a git repository
+            |Create a new one, switch to existing worktrees in the bare git repository, \#
+            |or delete them with corresponding branches
             |
             |Query:
-            |  <query>  Query to filter branches by using fzf (optional)
+            |  <query>  Query to filter branches by using fzf
             |
             |Options:
             |  -s, --sort=<sort>
