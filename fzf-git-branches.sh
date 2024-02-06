@@ -51,37 +51,6 @@ fgb() {
         }
 
 
-        __fgb_is_positive_int_or_float() {
-            # Check if the argument is a positive integer or a floating-point number
-            if [[ $# -eq 0 ]]; then
-                return 1
-            fi
-            local multiplier="$1"
-            if [[ "$multiplier" =~ ^[0-9]+$ ]]; then
-                return 0
-            elif [[ "$multiplier" =~ ^[0-9]+\.[0-9]+$ ]]; then
-                return 0
-            else
-                return 1
-            fi
-        }
-
-
-        __fgb_get_segment_width_relative_to_window() {
-            # Calculate the width of a segment relative to the width of the terminal window
-
-            if [[ $# -eq 0 ]] || ! __fgb_is_positive_int_or_float "$1"; then
-                echo "25"
-                return
-            else
-                local multiplier; multiplier="$1"
-            fi
-            # Extract the width of the age column
-            local available_width; available_width=$(( WIDTH_OF_WINDOW - 17 ))
-            echo "$available_width $multiplier" | awk '{printf("%.0f", $1 * $2)}'
-        }
-
-
         __fgb_stdout_unindented() {
             # Print a string to stdout unindented
 
@@ -115,6 +84,7 @@ fgb() {
                     -f | --force)
                         force=true
                         ;;
+                    "") ;; # Skip empty arguments
                     *)
                         positional_args+=("$1")
                         ;;
@@ -156,8 +126,8 @@ fgb() {
                         local output
                         if ! output="$(git branch -d "$branch_name" 2>&1)"; then
                             local head_branch; head_branch="$(git rev-parse --abbrev-ref HEAD)"
-                            echo "$output" >&2
                             if ! grep -q "^error: .* is not fully merged\.$" <<< "$output"; then
+                                echo "$output"
                                 continue
                             fi
                             user_prompt=$(__fgb_stdout_unindented "
@@ -176,6 +146,8 @@ fgb() {
                                 exit_code=$?
                                 if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                             fi
+                        else
+                            echo "$output"
                         fi
                     fi
                 fi
@@ -238,7 +210,7 @@ fgb() {
                 ["remotes"]=1
             )
 
-            local ref_type ref_name format_string refs
+            local ref_type ref_name refs
             for ref_type in "${ref_types[@]}"; do
                 refs=$(git for-each-ref \
                         --format='%(refname)' \
@@ -259,52 +231,53 @@ fgb() {
         }
 
 
+        __fgb_branch_set_vars() {
+            # Define branch related variables
+
+            if [ $# -ne 1 ]; then
+                echo "error: missing argument: branch list"
+                return 41
+            fi
+
+            if ! git rev-parse --show-toplevel &>/dev/null; then
+                echo "Not inside a Git repository. Exit..."
+                return 42
+            fi
+
+            local branch_list="$1"
+            local \
+                branch \
+                branch_curr_width \
+                author_name \
+                author_curr_width
+            while IFS='' read -r branch; do
+                c_branch_author_map["$branch"]="$(git log -1 --pretty=format:"%cn" "$branch")"
+                c_branch_date_map["$branch"]="$(
+                    git log -1 --format="%cd" --date=relative "$branch"
+                )"
+                # Calculate column widths
+                branch_curr_width="${#branch}"
+                c_br_branch_width="$((
+                        branch_curr_width > c_br_branch_width ?
+                        branch_curr_width :
+                        c_br_branch_width
+                ))"
+                author_name="${c_branch_author_map["$branch"]}"
+                author_curr_width="${#author_name}"
+                c_br_author_width="$((
+                        author_curr_width > c_br_author_width ?
+                        author_curr_width :
+                        c_br_author_width
+                ))"
+            done <<< "$branch_list"
+        }
+
+
         __fgb_branch_list() {
             # List branches in a git repository
 
-            local refname_width=75
-            local author_width=40
-            local sort_order="refname"
-            local filter_list=""
-            local list_remote_branches=false
-            local list_all_branches=false
-
             while [ $# -gt 0 ]; do
                 case "$1" in
-                    --refname-width)
-                        shift
-                        refname_width="$1"
-                        ;;
-                    --refname-width=*)
-                        refname_width="${1#*=}"
-                        ;;
-                    --author-width)
-                        shift
-                        author_width="$1"
-                        ;;
-                    --author-width=*)
-                        author_width="${1#*=}"
-                        ;;
-                    -s | --sort)
-                        shift
-                        sort_order="$1"
-                        ;;
-                    --sort=*)
-                        sort_order="${1#*=}"
-                        ;;
-                    --filter)
-                        shift
-                        filter_list="$1"
-                        ;;
-                    --filter=*)
-                        filter_list="${1#*=}"
-                        ;;
-                    -r | --remotes)
-                        list_remote_branches=true
-                        ;;
-                    -a | --all)
-                        list_all_branches=true
-                        ;;
                     -h | --help)
                         echo "${usage_message[branch_list]}"
                         return
@@ -315,88 +288,52 @@ fgb() {
                         return 1
                         ;;
                     *)
-                        echo "$0: Invalid argument: $1"
+                        echo "error: unknown argument: \`$1'"
+                        echo "${usage_message[branch_list]}" >&2
                         return 1
                         ;;
                 esac
-                shift
             done
 
-            local num
-            for num in "$refname_width" "$author_width"; do
-                if ! __fgb_is_positive_int "$num"; then
-                    echo "$0: Invalid value for argument: $num"
-                    return 1
-                fi
-            done
+            local total_width wt_path_width_limit
+            total_width="$((
+                    c_br_branch_width + c_br_author_width + c_date_width + 3
+            ))"
 
-            local ref_types=()
-            if "$list_remote_branches"; then
-                ref_types=("remotes")
+            # Calculate spacers
+            local spacer
+            spacer="$(
+                echo "$WIDTH_OF_WINDOW $total_width" | \
+                    awk '{printf("%.0f", ($1 - $2) / 3)}'
+            )"
+            if [ "$spacer" -lt 0 ]; then
+                spacer=0
             else
-                ref_types=("heads")
+                spacer=$(( spacer < 3 ? spacer : 3 ))
             fi
 
-            if "$list_all_branches"; then
-                ref_types=("heads" "remotes")
-            fi
-
-            local -A type_strip
-            type_strip=(
-                ["heads"]=2
-                ["remotes"]=1
-            )
-
-            local ref_type ref_name format_string refs
-            for ref_type in "${ref_types[@]}"; do
-                # Use ` |@| ` as a delimiter to avoid conflicts with special chars in the output
-                format_string="%(refname:lstrip=${type_strip[$ref_type]}) |@| "
-                format_string+="%(committername) |@| %(committerdate:relative)"
-                refs=$(git for-each-ref \
-                        --format='%(refname)' \
-                        --sort="$sort_order" \
-                        refs/"$ref_type"
-                )
-                if [[ -n "$filter_list" ]]; then
-                    filter_list="$(tr ";, " "\n" <<< "$filter_list")"
-                    refs=$(grep -E "$filter_list" <<< "$refs")
-                fi
-                while read -r ref_name; do
-                    git for-each-ref --format="$format_string" "$ref_name"
-                done <<< "$refs"
-            done
+            local start_position
+            while IFS='' read -r branch; do
+                author_name="${c_branch_author_map["$branch"]}"
+                author_date="${c_branch_date_map["$branch"]}"
+                # Adjust the branch name column width based on the number of color code characters
+                printf "%-$(( c_br_branch_width + 13 ))b" "[${col_y_bold}$branch${col_reset}]"
+                printf \
+                    "%${spacer}s${col_g}%-${c_br_author_width}s${col_reset}" " " "$author_name"
+                printf \
+                    "%${spacer}s(${col_b}%s${col_reset})\n" " " "$author_date"
+            done <<< "$c_branches"
         }
 
 
         __fgb_branch_manage() {
             # Manage Git branches
 
-            local sort_order="-committerdate"
-            local force=false
-            local positional_args=()
-            local branch_list_args=()
-
+            local force
             while [ $# -gt 0 ]; do
                 case "$1" in
-                    -s | --sort)
-                        shift
-                        sort_order="$1"
-                        ;;
-                    --sort=*)
-                        sort_order="${1#*=}"
-                        ;;
-                    -a | --all | -r | --remotes)
-                        branch_list_args+=("$1")
-                        ;;
-                    --filter)
-                        shift
-                        branch_list_args+=("--filter $1")
-                        ;;
-                    --filter=*)
-                        branch_list_args+=("--filter ${1#*=}")
-                        ;;
                     -f | --force)
-                        force=true
+                        force="--force"
                         ;;
                     -h | --help)
                         echo "${usage_message[branch_manage]}"
@@ -425,15 +362,7 @@ fgb() {
                 fzf_cmd+=" --query='${positional_args[*]}'"
             fi
 
-            local branch_list_cmd="\
-                __fgb_branch_list \
-                    --sort $sort_order \
-                    --refname-width '$refname_width' \
-                    --author-width '$author_width' \
-                    ${branch_list_args[*]} \
-                "
-
-            local lines; lines="$(eval "$branch_list_cmd" | eval "$fzf_cmd" | cut -d' ' -f1)"
+            local lines; lines="$(__fgb_branch_list | eval "$fzf_cmd" | cut -d' ' -f1)"
 
             if [[ -z "$lines" ]]; then
                 return
@@ -441,14 +370,13 @@ fgb() {
 
             local key; key=$(head -1 <<< "$lines")
 
+            # Remove brackets
+            # shellcheck disable=SC2001
+            lines="$(sed 's/^.\(.*\).$/\1/' <<< "$lines")"
+
             if [[ $key == "$del_key" ]]; then
-                if "$force"; then
-                    __fgb_git_branch_delete "$(sed 1d <<< "$lines")" --force
-                    return $?
-                else
-                    __fgb_git_branch_delete "$(sed 1d <<< "$lines")"
-                    return $?
-                fi
+                __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force"
+                return $?
             else
                 local branch_name; branch_name="$(tail -1 <<< "$lines")"
                 if [[ "$branch_name" == remotes/*/* ]]; then
@@ -463,18 +391,47 @@ fgb() {
 
 
         __fgb_branch() {
-            local subcommand="$1"
+            local subcommand="$1" branch_list_args=() other_args=()
             shift
+
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                    -s | --sort)
+                        shift
+                        branch_list_args+=("--sort $1")
+                        ;;
+                    --sort=*)
+                        branch_list_args+=("--sort ${1#*=}")
+                        ;;
+                    --filter)
+                        shift
+                        branch_list_args+=("--filter $1")
+                        ;;
+                    --filter=*)
+                        branch_list_args+=("--filter ${1#*=}")
+                        ;;
+                    -r | --remotes | -a | --all)
+                        branch_list_args+=("$1")
+                        ;;
+                    *)
+                        other_args+=("$1")
+                        ;;
+                esac
+                shift
+            done
+
+            if ! c_branches="$(
+                eval "__fgb_git_branch_list ${branch_list_args[*]}"
+                )"; then
+                echo -e "$c_branches"
+                return 1
+            fi
+
+            __fgb_branch_set_vars "$c_branches"
+
             case $subcommand in
-                list)
-                    __fgb_branch_list \
-                        --refname-width "$refname_width" \
-                        --author-width "$author_width" \
-                        "$@"
-                    ;;
-                manage)
-                    __fgb_branch_manage "$@"
-                    ;;
+                list) __fgb_branch_list "${other_args[@]}" ;;
+                manage) __fgb_branch_manage "${other_args[@]}" ;;
                 -h | --help)
                     echo "${usage_message[branch]}"
                     return
@@ -493,14 +450,6 @@ fgb() {
         }
 
 
-        __fgb_is_positive_int() {
-            # Check if the argument is a positive integer
-            if ! [ "$1" -gt 0 ] 2>/dev/null; then
-                return 1
-            fi
-        }
-
-
         __fgb_git_worktree_delete() {
             # Delete a Git worktree for a given branch
 
@@ -511,6 +460,7 @@ fgb() {
                     -f | --force)
                         force=true
                         ;;
+                    "") ;; # Skip empty arguments
                     *)
                         positional_args+=("$1")
                         ;;
@@ -636,7 +586,6 @@ fgb() {
             fi
 
             local sort_order="-committerdate"
-            local positional_args=()
 
             while [ $# -gt 0 ]; do
                 case "$1" in
@@ -651,8 +600,13 @@ fgb() {
                         echo "${usage_message[worktree_list]}"
                         return
                         ;;
+                    --* | -*)
+                        echo "error: unknown option: \`$1'" >&2
+                        echo "${usage_message[worktree_list]}" >&2
+                        return 1
+                        ;;
                     *)
-                        echo "$0: Invalid argument: $1"
+                        echo "error: unknown argument: \`$1'"
                         echo "${usage_message[worktree_list]}" >&2
                         return 1
                         ;;
@@ -670,34 +624,14 @@ fgb() {
                 return 1
             fi
 
-            # Calculate column widths
-            local \
-                branch \
-                branch_width \
-                branch_max=0 \
-                wt_path \
-                wt_path_width \
-                wt_path_max=0 \
-                author_name \
-                author_width \
-                author_max=0
-            while IFS='' read -r branch; do
-                branch_width="${#branch}"
-                branch_max="$(( branch_width > branch_max ? branch_width : branch_max ))"
-                wt_path="${c_worktree_path_map["$branch"]}"
-                wt_path_width="${#wt_path}"
-                wt_path_max="$(( wt_path_width > wt_path_max ? wt_path_width : wt_path_max ))"
-                author_name="${c_worktree_author_map["$branch"]}"
-                author_width="${#author_name}"
-                author_max="$(( author_width > author_max ? author_width : author_max ))"
-            done <<< "$c_worktree_branches"
-
-            local total_width wt_path_width_limit author_date_width=17 # Example: (99 minutes ago)
-            total_width="$(( branch_max + wt_path_max + author_max + author_date_width + 3 ))"
+            local total_width wt_path_width_limit
+            total_width="$((
+                    c_wt_branch_width + c_wt_path_width + c_wt_author_width + c_date_width + 3
+            ))"
             wt_path_width_limit="$((
                     total_width > WIDTH_OF_WINDOW ?
-                    wt_path_max + WIDTH_OF_WINDOW - total_width :
-                    wt_path_max
+                    c_wt_path_width + WIDTH_OF_WINDOW - total_width :
+                    c_wt_path_width
             ))"
 
             # Calculate spacers
@@ -714,22 +648,22 @@ fgb() {
 
             local start_position
             while IFS='' read -r branch; do
-                author_name="${c_worktree_author_map["$branch"]}"
-                author_date="${c_worktree_date_map["$branch"]}"
+                author_name="${c_branch_author_map["$branch"]}"
+                author_date="${c_branch_date_map["$branch"]}"
                 wt_path="${c_worktree_path_map["$branch"]}"
-                wt_path_width="${#wt_path}"
+                wt_path_curr_width="${#wt_path}"
                 # Adjust the branch name column width based on the number of color code characters
-                printf "%-$(( branch_max + 13 ))b" "[${col_y_bold}$branch${col_reset}]"
+                printf "%-$(( c_wt_branch_width + 13 ))b" "[${col_y_bold}$branch${col_reset}]"
                 if [ "$wt_path_width_limit" -gt 10 ]; then
-                    if [ "$wt_path_width" -gt "$wt_path_width_limit" ]; then
-                        start_position=$(( wt_path_width - wt_path_width_limit + 3 ))
+                    if [ "$wt_path_curr_width" -gt "$wt_path_width_limit" ]; then
+                        start_position=$(( wt_path_curr_width - wt_path_width_limit + 3 ))
                         wt_path="${wt_path:$start_position}"
                         wt_path=".../${wt_path#*/}"
                     fi
                     printf "%${spacer}s%-${wt_path_width_limit}s" " " "$wt_path"
                 fi
                 printf \
-                    "%${spacer}s${col_g}%-${author_max}s${col_reset}" " " "$author_name"
+                    "%${spacer}s${col_g}%-${c_wt_author_width}s${col_reset}" " " "$author_name"
                 printf \
                     "%${spacer}s(${col_b}%s${col_reset})\n" " " "$author_date"
             done <<< "$sorted_branches_list"
@@ -744,32 +678,19 @@ fgb() {
                 return
             fi
 
-            local sort_order="-committerdate"
-            local force=false
-            local positional_args=()
-            local branch_list_args=()
+            local branch_list_args=() positional_args=() sort_order="-committerdate" force
 
             while [ $# -gt 0 ]; do
                 case "$1" in
+                    -f | --force)
+                        force="--force"
+                        ;;
                     -s | --sort)
                         shift
-                        sort_order="$1"
+                        branch_list_args+=("--sort $1")
                         ;;
                     --sort=*)
-                        sort_order="${1#*=}"
-                        ;;
-                    -a | --all | -r | --remotes)
-                        branch_list_args+=("$1")
-                        ;;
-                    --filter)
-                        shift
-                        branch_list_args+=("--filter $1")
-                        ;;
-                    --filter=*)
-                        branch_list_args+=("--filter ${1#*=}")
-                        ;;
-                    -f | --force)
-                        force=true
+                        branch_list_args+=("--sort ${1#*=}")
                         ;;
                     -h | --help)
                         echo "${usage_message[worktree_manage]}"
@@ -798,15 +719,11 @@ fgb() {
                 fzf_cmd+=" --query='${positional_args[*]}'"
             fi
 
-            local branch_list_cmd="\
-                __fgb_branch_list \
-                    --sort $sort_order \
-                    --refname-width $refname_width \
-                    --author-width $author_width \
-                    ${branch_list_args[*]} \
-                "
-
-            local lines; lines="$(eval "$branch_list_cmd" | eval "$fzf_cmd" | cut -d' ' -f1)"
+            local lines; lines="$(
+                __fgb_worktree_list "${branch_list_args[@]}" | \
+                    eval "$fzf_cmd" | \
+                    cut -d' ' -f1
+            )"
 
             if [[ -z "$lines" ]]; then
                 return
@@ -814,14 +731,13 @@ fgb() {
 
             local key; key=$(head -1 <<< "$lines")
 
+            # Remove brackets
+            # shellcheck disable=SC2001
+            lines="$(sed 's/^.\(.*\).$/\1/' <<< "$lines")"
+
             if [[ $key == "$del_key" ]]; then
-                if "$force"; then
-                    __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" --force
-                    return $?
-                else
-                    __fgb_git_worktree_delete "$(sed 1d <<< "$lines")"
-                    return $?
-                fi
+                __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force"
+                return $?
             else
                 __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")"
                 return $?
@@ -841,7 +757,6 @@ fgb() {
                     rev
                 )"; then
                 echo "Not inside a bare Git repository. Exit..."
-                unset c_bare_repo_path
                 return 42
             fi
 
@@ -853,16 +768,42 @@ fgb() {
                 rev <<< "$wt_list" | cut -d' ' -f1 | rev | sed 's/^.\(.*\).$/\1/'
             )"
 
-            local branch line
+            __fgb_branch_set_vars "$c_worktree_branches"
+
+            local \
+                branch \
+                line \
+                branch_curr_width \
+                wt_path \
+                wt_path_curr_width \
+                author_name \
+                author_curr_width
             while IFS='' read -r line; do
                 branch="$(rev <<< "$line" | cut -d' ' -f1 | rev | sed 's/^.\(.*\).$/\1/')"
                 c_worktree_path_map["$branch"]="$(
                     rev <<< "$line" | cut -d' ' -f3- | sed 's/^[[:space:]]*//' | rev
                 )"
-                c_worktree_author_map["$branch"]="$(git log -1 --pretty=format:"%cn" "$branch")"
-                c_worktree_date_map["$branch"]="$(
-                    git log -1 --format="%cd" --date=relative "$branch"
-                )"
+                # Calculate column widths
+                branch_curr_width="${#branch}"
+                c_wt_branch_width="$((
+                        branch_curr_width > c_wt_branch_width ?
+                        branch_curr_width :
+                        c_wt_branch_width
+                ))"
+                wt_path="${c_worktree_path_map["$branch"]}"
+                wt_path_curr_width="${#wt_path}"
+                c_wt_path_width="$((
+                        wt_path_curr_width > c_wt_path_width ?
+                        wt_path_curr_width :
+                        c_wt_path_width
+                ))"
+                author_name="${c_branch_author_map["$branch"]}"
+                author_curr_width="${#author_name}"
+                c_wt_author_width="$((
+                        author_curr_width > c_wt_author_width ?
+                        author_curr_width :
+                        c_wt_author_width
+                ))"
             done <<< "$wt_list"
         }
 
@@ -911,12 +852,20 @@ fgb() {
             col_y_bold='\033[1;33m' \
             col_b_bold='\033[1;34m' \
             c_bare_repo_path \
-            c_worktree_branches
+            c_branches="" \
+            c_br_branch_width=0 \
+            c_br_author_width=0 \
+            c_worktree_branches="" \
+            c_wt_branch_width=0 \
+            c_wt_path_width=0 \
+            c_wt_author_width=0
+
+        local c_date_width=17 # Example: (99 minutes ago)
 
         local -A \
-            c_worktree_path_map \
-            c_worktree_author_map \
-            c_worktree_date_map
+            c_branch_author_map \
+            c_branch_date_map \
+            c_worktree_path_map
 
         # Define messages
         local version_message="fzf-git-branches, version $VERSION\n"
@@ -963,21 +912,15 @@ fgb() {
             |List branches in a git repository
             |
             |Options:
-            |  --refname-width=<width>
-            |          Set the width of the refname column
-            |
-            |  --author-width=<width>
-            |          Set the width of the author column
-            |
             |  -s, --sort=<sort>
             |          Sort branches by <sort>:
             |            refname (default)
             |
-            |  -r, --remotes
-            |          List remote branches
-            |
             |  --filter=<filter>
             |          Filter branches by <filter> string (semicolon, new line or comma separated)
+            |
+            |  -r, --remotes
+            |          List remote branches
             |
             |  -a, --all
             |          List all branches
@@ -995,21 +938,15 @@ fgb() {
             |  <query>  Query to filter branches by using fzf (optional)
             |
             |Options:
-            |  --refname-width=<width>
-            |          Set the width of the refname column
-            |
-            |  --author-width=<width>
-            |          Set the width of the author column
-            |
             |  -s, --sort=<sort>
             |          Sort branches by <sort>:
             |            -committerdate (default)
             |
-            |  -r, --remotes
-            |          List remote branches
-            |
             |  --filter=<filter>
             |          Filter branches by <filter> string (semicolon, new line or comma separated)
+            |
+            |  -r, --remotes
+            |          List remote branches
             |
             |  -a, --all
             |          List all branches
@@ -1049,30 +986,15 @@ fgb() {
             ["worktree_manage"]="$(__fgb_stdout_unindented "
             |Usage: fgb worktree manage [<args>] [<query>]
             |
-            |Create/switch to or delete worktrees in a git repository
+            |Switch to or delete worktrees in a git repository
             |
             |Query:
             |  <query>  Query to filter branches by using fzf (optional)
             |
             |Options:
-            |  --refname-width=<width>
-            |          Set the width of the refname column
-            |
-            |  --author-width=<width>
-            |          Set the width of the author column
-            |
             |  -s, --sort=<sort>
             |          Sort branches by <sort>:
             |            -committerdate (default)
-            |
-            |  -r, --remotes
-            |          List remote branches
-            |
-            |  --filter=<filter>
-            |          Filter branches by <filter> string (semicolon, new line or comma separated)
-            |
-            |  -a, --all
-            |          List all branches
             |
             |  -f, --force
             |          Suppress confirmation dialog for non-dangerous operations
@@ -1088,9 +1010,6 @@ fgb() {
         local fgb_subcommand="${1:-}"
 
         local WIDTH_OF_WINDOW; WIDTH_OF_WINDOW=$(tput cols)
-
-        local refname_width; refname_width="$(__fgb_get_segment_width_relative_to_window 0.67)"
-        local author_width; author_width="$(__fgb_get_segment_width_relative_to_window 0.33)"
 
         local exit_code=
         case "$fgb_command" in
@@ -1152,14 +1071,12 @@ fgb() {
         __fgb_branch \
         __fgb_branch_list \
         __fgb_branch_manage \
+        __fgb_branch_set_vars \
         __fgb_confirmation_dialog \
-        __fgb_get_segment_width_relative_to_window \
         __fgb_git_branch_delete \
         __fgb_git_branch_list \
         __fgb_git_worktree_delete \
         __fgb_git_worktree_jump_or_create \
-        __fgb_is_positive_int \
-        __fgb_is_positive_int_or_float \
         __fgb_stdout_unindented \
         __fgb_worktree \
         __fgb_worktree_list \
