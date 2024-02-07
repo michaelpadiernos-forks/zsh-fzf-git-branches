@@ -400,18 +400,20 @@ fgb() {
             while [ $# -gt 0 ]; do
                 case "$1" in
                     -s | --sort)
+                        branch_list_args+=("$1")
                         shift
-                        branch_list_args+=("--sort $1")
+                        branch_list_args+=("$1")
                         ;;
                     --sort=*)
-                        branch_list_args+=("--sort ${1#*=}")
+                        branch_list_args+=("$1")
                         ;;
                     --filter)
+                        branch_list_args+=("$1")
                         shift
-                        branch_list_args+=("--filter $1")
+                        branch_list_args+=("$1")
                         ;;
                     --filter=*)
-                        branch_list_args+=("--filter ${1#*=}")
+                        branch_list_args+=("$1")
                         ;;
                     -r | --remotes | -a | --all)
                         branch_list_args+=("$1")
@@ -604,18 +606,20 @@ fgb() {
             while [ $# -gt 0 ]; do
                 case "$1" in
                     -s | --sort)
+                        branch_list_args+=("$1")
                         shift
-                        branch_list_args+=("--sort $1")
+                        branch_list_args+=("$1")
                         ;;
                     --sort=*)
-                        branch_list_args+=("--sort ${1#*=}")
+                        branch_list_args+=("$1")
                         ;;
                     --filter)
+                        branch_list_args+=("$1")
                         shift
-                        branch_list_args+=("--filter $1")
+                        branch_list_args+=("$1")
                         ;;
                     --filter=*)
-                        branch_list_args+=("--filter ${1#*=}")
+                        branch_list_args+=("$1")
                         ;;
                     -r | --remotes | -a | --all)
                         branch_list_args+=("$1")
@@ -705,18 +709,20 @@ fgb() {
             while [ $# -gt 0 ]; do
                 case "$1" in
                     -s | --sort)
+                        branch_list_args+=("$1")
                         shift
-                        branch_list_args+=("--sort $1")
+                        branch_list_args+=("$1")
                         ;;
                     --sort=*)
-                        branch_list_args+=("--sort ${1#*=}")
+                        branch_list_args+=("$1")
                         ;;
                     --filter)
+                        branch_list_args+=("$1")
                         shift
-                        branch_list_args+=("--filter $1")
+                        branch_list_args+=("$1")
                         ;;
                     --filter=*)
-                        branch_list_args+=("--filter ${1#*=}")
+                        branch_list_args+=("$1")
                         ;;
                     -r | --remotes | -a | --all)
                         branch_list_args+=("$1")
@@ -802,18 +808,20 @@ fgb() {
                         force="--force"
                         ;;
                     -s | --sort)
+                        branch_list_args+=("$1")
                         shift
-                        branch_list_args+=("--sort $1")
+                        branch_list_args+=("$1")
                         ;;
                     --sort=*)
-                        branch_list_args+=("--sort ${1#*=}")
+                        branch_list_args+=("$1")
                         ;;
                     --filter)
+                        branch_list_args+=("$1")
                         shift
-                        branch_list_args+=("--filter $1")
+                        branch_list_args+=("$1")
                         ;;
                     --filter=*)
-                        branch_list_args+=("--filter ${1#*=}")
+                        branch_list_args+=("$1")
                         ;;
                     -h | --help)
                         echo "${usage_message[worktree_manage]}"
