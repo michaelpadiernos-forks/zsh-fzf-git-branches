@@ -662,11 +662,24 @@ fgb() {
             total_width="$((
                     c_branch_width + c_wt_path_width + c_author_width + c_date_width + 3
             ))"
+
             wt_path_width_limit="$((
                     total_width > WIDTH_OF_WINDOW ?
                     c_wt_path_width + WIDTH_OF_WINDOW - total_width :
                     c_wt_path_width
             ))"
+
+            local print_author=true
+            if [ "$wt_path_width_limit" -le 10 ]; then
+                total_width="$(( total_width - c_author_width ))"
+                print_author=false
+                wt_path_width_limit="$((
+                        total_width > WIDTH_OF_WINDOW ?
+                        c_wt_path_width + WIDTH_OF_WINDOW - total_width :
+                        c_wt_path_width
+                ))"
+            fi
+
 
             # Calculate spacers
             local spacer
@@ -682,7 +695,6 @@ fgb() {
 
             local start_position
             while IFS='' read -r branch; do
-                author_name="${c_branch_author_map["$branch"]}"
                 author_date="${c_branch_date_map["$branch"]}"
                 wt_path="${c_worktree_path_map["$branch"]}"
                 wt_path_curr_width="${#wt_path}"
@@ -696,8 +708,11 @@ fgb() {
                     fi
                     printf "%${spacer}s%-${wt_path_width_limit}s" " " "$wt_path"
                 fi
-                printf \
-                    "%${spacer}s${col_g}%-${c_author_width}s${col_reset}" " " "$author_name"
+                if "$print_author"; then
+                    author_name="${c_branch_author_map["$branch"]}"
+                    printf \
+                        "%${spacer}s${col_g}%-${c_author_width}s${col_reset}" " " "$author_name"
+                fi
                 printf \
                     "%${spacer}s(${col_b}%s${col_reset})\n" " " "$author_date"
             done <<< "$sorted_branches_list"
