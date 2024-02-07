@@ -670,7 +670,7 @@ fgb() {
             ))"
 
             local print_author=true
-            if [ "$wt_path_width_limit" -le 10 ]; then
+            if [ "$wt_path_width_limit" -lt $(( c_wt_path_width - 5 )) ]; then
                 total_width="$(( total_width - c_author_width ))"
                 print_author=false
                 wt_path_width_limit="$((
@@ -700,11 +700,19 @@ fgb() {
                 wt_path_curr_width="${#wt_path}"
                 # Adjust the branch name column width based on the number of color code characters
                 printf "%-$(( c_branch_width + 13 ))b" "[${col_y_bold}$branch${col_reset}]"
-                if [ "$wt_path_width_limit" -gt 10 ]; then
+                if [ "$wt_path_width_limit" -gt 3 ]; then
                     if [ "$wt_path_curr_width" -gt "$wt_path_width_limit" ]; then
-                        start_position=$(( wt_path_curr_width - wt_path_width_limit + 3 ))
-                        wt_path="${wt_path:$start_position}"
-                        wt_path=".../${wt_path#*/}"
+                        if [[ "$wt_path" =~ ^\.\./ ]]; then
+                            while [[ "$wt_path" =~ ^\.\./ ]]; do
+                                wt_path="${wt_path#../}"
+                            done
+                            wt_path=".../${wt_path}"
+                            wt_path_curr_width="${#wt_path}"
+                        fi
+                        if [ "$wt_path_curr_width" -gt "$wt_path_width_limit" ]; then
+                            start_position=$(( wt_path_curr_width - wt_path_width_limit + 3 ))
+                            wt_path="...${wt_path:$start_position}"
+                        fi
                     fi
                     printf "%${spacer}s%-${wt_path_width_limit}s" " " "$wt_path"
                 fi
@@ -929,11 +937,16 @@ fgb() {
                 wt_path_curr_width
             while IFS='' read -r line; do
                 branch="$(rev <<< "$line" | cut -d' ' -f1 | rev | sed 's/^.\(.*\).$/\1/')"
-                c_worktree_path_map["$branch"]="$(
+                wt_path="$(
                     rev <<< "$line" | cut -d' ' -f3- | sed 's/^[[:space:]]*//' | rev
                 )"
+                wt_path="$(realpath --relative-to="$c_bare_repo_path" "$wt_path")"
+                # Check if the variable starts with '../'
+                if [[ ! "$wt_path" =~ ^\.\./ ]]; then
+                    wt_path="./$wt_path"
+                fi
+                c_worktree_path_map["$branch"]="$wt_path"
                 # Calculate column widths
-                wt_path="${c_worktree_path_map["$branch"]}"
                 wt_path_curr_width="${#wt_path}"
                 c_wt_path_width="$((
                         wt_path_curr_width > c_wt_path_width ?
