@@ -935,13 +935,8 @@ fgb() {
                     local positional_args=()
                     while [ $# -gt 0 ]; do
                         case "$1" in
-                            --filter | -r | --remotes | -a | --all)
+                            --filter | --filter=* | -r | --remotes | -a | --all)
                                 echo "error: unknown option: \`$1'" >&2
-                                echo "${usage_message[worktree_list]}" >&2
-                                return 1
-                                ;;
-                            --filter=*)
-                                echo "error: unknown option: \`${1#*=}'" >&2
                                 echo "${usage_message[worktree_list]}" >&2
                                 return 1
                                 ;;
