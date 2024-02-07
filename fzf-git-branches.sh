@@ -425,9 +425,7 @@ fgb() {
                 shift
             done
 
-            if ! c_branches="$(
-                eval "__fgb_git_branch_list ${branch_list_args[*]}"
-                )"; then
+            if ! c_branches="$(__fgb_git_branch_list "${branch_list_args[@]}")"; then
                 echo -e "$c_branches"
                 return 1
             fi
@@ -643,9 +641,7 @@ fgb() {
             done
 
             local sorted_branches_list
-            if ! sorted_branches_list="$(
-                eval "__fgb_git_branch_list ${branch_list_args[*]}"
-                )"; then
+            if ! sorted_branches_list="$(__fgb_git_branch_list "${branch_list_args[@]}")"; then
                 echo -e "$sorted_branches_list" >&2
                 return 1
             fi
@@ -746,9 +742,7 @@ fgb() {
                 shift
             done
 
-            if ! c_branches="$(
-                __fgb_git_branch_list "${branch_list_args[@]}"
-                )"; then
+            if ! c_branches="$(__fgb_git_branch_list "${branch_list_args[@]}")"; then
                 echo -e "$c_branches" >&2
                 return 1
             fi
