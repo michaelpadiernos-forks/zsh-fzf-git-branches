@@ -851,7 +851,7 @@ fgb() {
             fi
 
             local lines; lines="$(
-                eval "__fgb_worktree_list ${branch_list_args[*]}" | \
+                __fgb_worktree_list "${branch_list_args[@]}" | \
                     eval "$fzf_cmd" | \
                     cut -d' ' -f1
             )"
