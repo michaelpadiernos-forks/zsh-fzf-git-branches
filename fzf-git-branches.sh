@@ -221,7 +221,7 @@ fgb() {
                         refs/"$ref_type"
                 )
                 if [[ -n "$filter_list" ]]; then
-                    filter_list="$(tr ":, " "\n" <<< "$filter_list")"
+                    filter_list="$(tr ": " "\n" <<< "$filter_list")"
                     refs=$(grep -E "$filter_list" <<< "$refs")
                 fi
                 while read -r ref_name; do
@@ -1052,7 +1052,7 @@ fgb() {
             |            refname (default)
             |
             |  --filter=<filter>
-            |          Filter branches by <filter> string (colon or comma separated)
+            |          Filter branches by <filter> string (colon or space separated)
             |
             |  -r, --remotes
             |          List remote branches
@@ -1078,7 +1078,7 @@ fgb() {
             |            -committerdate (default)
             |
             |  --filter=<filter>
-            |          Filter branches by <filter> string (colon or comma separated)
+            |          Filter branches by <filter> string (colon or space separated)
             |
             |  -r, --remotes
             |          List remote branches
@@ -1117,6 +1117,23 @@ fgb() {
             |Options:
             |  -s, --sort=<sort>
             |          Sort worktrees by <sort>:
+            |            -committerdate (default)
+            |
+            |  -h, --help
+            |          Show help message
+            ")"
+
+            ["worktree_create"]="$(__fgb_stdout_unindented "
+            |Usage: fgb worktree create [<args>] [<query>]
+            |
+            |Create a new worktree in the bare git repository
+            |
+            |Query:
+            |  <query>  Query to filter branches by using fzf
+            |
+            |Options:
+            |  -s, --sort=<sort>
+            |          Sort branches by <sort>:
             |            -committerdate (default)
             |
             |  -h, --help
