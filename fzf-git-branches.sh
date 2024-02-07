@@ -270,7 +270,15 @@ fgb() {
                         c_branch_width
                 ))"
                 author_name="${c_branch_author_map["$branch"]}"
+
+                # Trim long author names with multiple parts delimited by '/'
                 author_curr_width="${#author_name}"
+                if [[ "$author_curr_width" -gt 25 && "$author_name" == *"/"* ]]; then
+                    author_name=".../${author_name#*/}"
+                    c_branch_author_map["$branch"]="$author_name"
+                    author_curr_width="${#author_name}"
+                fi
+
                 c_author_width="$((
                         author_curr_width > c_author_width ?
                         author_curr_width :
