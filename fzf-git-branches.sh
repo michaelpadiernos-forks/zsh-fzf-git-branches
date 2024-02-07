@@ -658,71 +658,42 @@ fgb() {
                 return 1
             fi
 
-            local total_width wt_path_width_limit
-            total_width="$((
-                    c_branch_width + c_wt_path_width + c_author_width + c_date_width + 3
-            ))"
+            local total_width
+            total_width="$(( c_branch_width + c_author_width + c_date_width + 3 ))"
 
-            wt_path_width_limit="$((
-                    total_width > WIDTH_OF_WINDOW ?
-                    c_wt_path_width + WIDTH_OF_WINDOW - total_width :
-                    c_wt_path_width
-            ))"
-
-            local print_author=true
-            if [ "$wt_path_width_limit" -lt $(( c_wt_path_width - 5 )) ]; then
+            if [ "$total_width" -gt "$WIDTH_OF_WINDOW" ]; then
+                c_show_author=false
                 total_width="$(( total_width - c_author_width ))"
-                print_author=false
-                wt_path_width_limit="$((
-                        total_width > WIDTH_OF_WINDOW ?
-                        c_wt_path_width + WIDTH_OF_WINDOW - total_width :
-                        c_wt_path_width
-                ))"
             fi
 
+            if [ "$total_width" -gt "$WIDTH_OF_WINDOW" ]; then
+                c_show_date=false
+                total_width="$(( total_width - c_date_width ))"
+            fi
 
             # Calculate spacers
             local spacer
             spacer="$(
-                echo "$WIDTH_OF_WINDOW $total_width" | \
-                    awk '{printf("%.0f", ($1 - $2) / 3)}'
+                echo "$WIDTH_OF_WINDOW $total_width" | awk '{printf("%.0f", ($1 - $2) / 2)}'
             )"
             if [ "$spacer" -lt 0 ]; then
                 spacer=0
             else
-                spacer=$(( spacer < 3 ? spacer : 3 ))
+                spacer=$(( spacer < 4 ? spacer : 4 ))
             fi
 
-            local start_position
             while IFS='' read -r branch; do
-                author_date="${c_branch_date_map["$branch"]}"
-                wt_path="${c_worktree_path_map["$branch"]}"
-                wt_path_curr_width="${#wt_path}"
                 # Adjust the branch name column width based on the number of color code characters
                 printf "%-$(( c_branch_width + 13 ))b" "[${col_y_bold}$branch${col_reset}]"
-                if [ "$wt_path_width_limit" -gt 3 ]; then
-                    if [ "$wt_path_curr_width" -gt "$wt_path_width_limit" ]; then
-                        if [[ "$wt_path" =~ ^\.\./ ]]; then
-                            while [[ "$wt_path" =~ ^\.\./ ]]; do
-                                wt_path="${wt_path#../}"
-                            done
-                            wt_path=".../${wt_path}"
-                            wt_path_curr_width="${#wt_path}"
-                        fi
-                        if [ "$wt_path_curr_width" -gt "$wt_path_width_limit" ]; then
-                            start_position=$(( wt_path_curr_width - wt_path_width_limit + 3 ))
-                            wt_path="...${wt_path:$start_position}"
-                        fi
-                    fi
-                    printf "%${spacer}s%-${wt_path_width_limit}s" " " "$wt_path"
-                fi
-                if "$print_author"; then
+                if "$c_show_author"; then
                     author_name="${c_branch_author_map["$branch"]}"
                     printf \
                         "%${spacer}s${col_g}%-${c_author_width}s${col_reset}" " " "$author_name"
                 fi
-                printf \
-                    "%${spacer}s(${col_b}%s${col_reset})\n" " " "$author_date"
+                if "$c_show_date"; then
+                    author_date="${c_branch_date_map["$branch"]}"
+                    printf "%${spacer}s(${col_b}%s${col_reset})\n" " " "$author_date"
+                fi
             done <<< "$sorted_branches_list"
         }
 
@@ -937,16 +908,11 @@ fgb() {
                 wt_path_curr_width
             while IFS='' read -r line; do
                 branch="$(rev <<< "$line" | cut -d' ' -f1 | rev | sed 's/^.\(.*\).$/\1/')"
-                wt_path="$(
+                c_worktree_path_map["$branch"]="$(
                     rev <<< "$line" | cut -d' ' -f3- | sed 's/^[[:space:]]*//' | rev
                 )"
-                wt_path="$(realpath --relative-to="$c_bare_repo_path" "$wt_path")"
-                # Check if the variable starts with '../'
-                if [[ ! "$wt_path" =~ ^\.\./ ]]; then
-                    wt_path="./$wt_path"
-                fi
-                c_worktree_path_map["$branch"]="$wt_path"
                 # Calculate column widths
+                wt_path="${c_worktree_path_map["$branch"]}"
                 wt_path_curr_width="${#wt_path}"
                 c_wt_path_width="$((
                         wt_path_curr_width > c_wt_path_width ?
@@ -1032,8 +998,9 @@ fgb() {
             c_author_width=0 \
             c_worktree_branches="" \
             c_wt_path_width=0 \
-
-            local c_date_width=17 # Example: (99 minutes ago)
+            c_show_author=true \
+            c_show_date=true \
+            c_date_width=17 # Example: (99 minutes ago)
 
         local -A \
             c_branch_author_map \
