@@ -781,11 +781,13 @@ fgb() {
 
             __fgb_branch_set_vars "$c_branches"
 
-            local del_key="ctrl-d"
+            local del_key="ctrl-d" info_key="ctrl-i"
+            local header="Manage Git Worktrees:"
+            header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $info_key:info"
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
-                    --expect='$del_key' \
-                    --header 'Manage Git Worktrees: ctrl-y:jump, ctrl-t:toggle, $del_key:delete' \
+                    --expect='"$del_key,$info_key"' \
+                    --header '$header' \
                 "
 
             if [[ "${#positional_args[@]}" -gt 0 ]]; then
@@ -808,13 +810,28 @@ fgb() {
             # shellcheck disable=SC2001
             lines="$(sed 's/^.\(.*\).$/\1/' <<< "$lines")"
 
-            if [[ $key == "$del_key" ]]; then
-                __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force"
-                return $?
-            else
-                __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")"
-                return $?
-            fi
+            case $key in
+                "$del_key")
+                    __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force"
+                    return $?
+                    ;;
+                "$info_key")
+                    local branch; branch="$(tail -1 <<< "$lines")"
+                    echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
+                    local wt_path; wt_path="${c_worktree_path_map["$branch"]}"
+                    if [[ -n "$wt_path" ]]; then
+                        echo -e "worktree  : ${col_bold}$wt_path${col_reset}"
+                    fi
+                    echo -e "committer : ${col_g}${c_branch_author_map["$branch"]}${col_reset}"
+                    echo -e "date      : ${col_b}${c_branch_date_map["$branch"]}${col_reset}"
+                    echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
+                    return
+                    ;;
+                *)
+                    __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")"
+                    return $?
+                    ;;
+            esac
         }
 
 
@@ -865,11 +882,13 @@ fgb() {
                 shift
             done
 
-            local del_key="ctrl-d"
+            local del_key="ctrl-d" info_key="ctrl-i"
+            local header="Manage Git Worktrees:"
+            header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $info_key:info"
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
-                    --expect='$del_key' \
-                    --header 'Manage Git Worktrees: ctrl-y:jump, ctrl-t:toggle, $del_key:delete' \
+                    --expect='"$del_key,$info_key"' \
+                    --header '$header' \
                 "
 
             if [[ "${#positional_args[@]}" -gt 0 ]]; then
@@ -892,13 +911,25 @@ fgb() {
             # shellcheck disable=SC2001
             lines="$(sed 's/^.\(.*\).$/\1/' <<< "$lines")"
 
-            if [[ $key == "$del_key" ]]; then
-                __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force"
-                return $?
-            else
-                __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")"
-                return $?
-            fi
+            case $key in
+                "$del_key")
+                    __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force"
+                    return $?
+                    ;;
+                "$info_key")
+                    local branch; branch="$(tail -1 <<< "$lines")"
+                    echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
+                    echo -e "worktree  : ${col_bold}${c_worktree_path_map["$branch"]}${col_reset}"
+                    echo -e "committer : ${col_g}${c_branch_author_map["$branch"]}${col_reset}"
+                    echo -e "date      : ${col_b}${c_branch_date_map["$branch"]}${col_reset}"
+                    echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
+                    return
+                    ;;
+                *)
+                    __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")"
+                    return $?
+                    ;;
+            esac
         }
 
 
@@ -1016,6 +1047,7 @@ fgb() {
             col_reset='\033[0m' \
             col_g='\033[32m' \
             col_b='\033[34m' \
+            col_m='\033[35m' \
             col_bold='\033[1m' \
             col_r_bold='\033[1;31m' \
             col_g_bold='\033[1;32m' \
