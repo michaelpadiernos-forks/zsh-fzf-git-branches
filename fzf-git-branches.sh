@@ -161,7 +161,7 @@ fgb() {
         __fgb_git_branch_list() {
             # List branches in a git repository
 
-            local sort_order="refname"
+            local sort_order="-committerdate"
             local filter_list=""
             local list_remote_branches=false
             local list_all_branches=false
