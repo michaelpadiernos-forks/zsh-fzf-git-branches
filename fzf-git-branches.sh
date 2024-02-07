@@ -940,14 +940,17 @@ fgb() {
                         esac
                         shift
                     done
-                    local filter; filter="$(tr '\n' ':' <<< "$c_worktree_branches")"
                     case "$subcommand" in
                         list)
-                            __fgb_worktree_list "${positional_args[@]}" "--filter='$filter'"
+                            __fgb_worktree_list \
+                                "${positional_args[@]}" \
+                                --filter="$c_worktree_branches"
                             exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                             ;;
                         manage)
-                            __fgb_worktree_manage "${positional_args[@]}" "--filter='$filter'"
+                            __fgb_worktree_manage \
+                                "${positional_args[@]}" \
+                                --filter="$c_worktree_branches"
                             exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                             ;;
                     esac
