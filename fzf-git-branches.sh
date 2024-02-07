@@ -221,10 +221,14 @@ fgb() {
                         refs/"$ref_type"
                 )
                 if [[ -n "$filter_list" ]]; then
-                    filter_list="$(tr ": " "\n" <<< "$filter_list")"
-                    refs=$(grep -E "$filter_list" <<< "$refs")
+                    filter_list="$(tr ": " "\n" <<< "$filter_list" | sed "s|^|refs/$ref_type/|")"
                 fi
                 while read -r ref_name; do
+                    if [[ -n "$filter_list" ]]; then
+                        if ! grep -q -E "$ref_name$" <<< "$filter_list"; then
+                            continue
+                        fi
+                    fi
                     git \
                         for-each-ref \
                         --format="%(refname:lstrip=${type_strip[$ref_type]})" \
