@@ -310,33 +310,45 @@ fgb() {
                 esac
             done
 
-            local total_width wt_path_width_limit
-            total_width="$((
-                    c_branch_width + c_author_width + c_date_width + 3
-            ))"
+            local total_width
+            total_width="$(( c_branch_width + c_author_width + c_date_width + 3 ))"
+
+            if [ "$total_width" -gt "$WIDTH_OF_WINDOW" ]; then
+                c_show_author=false
+                total_width="$(( total_width - c_author_width ))"
+            fi
+
+            if [ "$total_width" -gt "$WIDTH_OF_WINDOW" ]; then
+                c_show_date=false
+                total_width="$(( total_width - c_date_width ))"
+            fi
 
             # Calculate spacers
-            local spacer
+            local spacer num_spacers=2
             spacer="$(
-                echo "$WIDTH_OF_WINDOW $total_width" | \
-                    awk '{printf("%.0f", ($1 - $2) / 3)}'
+                echo "$WIDTH_OF_WINDOW $total_width $num_spacers" | \
+                    awk '{printf("%.0f", ($1 - $2) / $3)}'
             )"
             if [ "$spacer" -lt 0 ]; then
                 spacer=0
             else
-                spacer=$(( spacer < 3 ? spacer : 3 ))
+                spacer=$(( spacer < 4 ? spacer : 4 ))
             fi
 
-            local start_position
             while IFS='' read -r branch; do
                 author_name="${c_branch_author_map["$branch"]}"
                 author_date="${c_branch_date_map["$branch"]}"
                 # Adjust the branch name column width based on the number of color code characters
                 printf "%-$(( c_branch_width + 13 ))b" "[${col_y_bold}$branch${col_reset}]"
-                printf \
-                    "%${spacer}s${col_g}%-${c_author_width}s${col_reset}" " " "$author_name"
-                printf \
-                    "%${spacer}s(${col_b}%s${col_reset})\n" " " "$author_date"
+                if "$c_show_author"; then
+                    author_name="${c_branch_author_map["$branch"]}"
+                    printf \
+                        "%${spacer}s${col_g}%-${c_author_width}s${col_reset}" " " "$author_name"
+                fi
+                if "$c_show_date"; then
+                    author_date="${c_branch_date_map["$branch"]}"
+                    printf "%${spacer}s(${col_b}%s${col_reset})\n" " " "$author_date"
+                fi
             done <<< "$c_branches"
         }
 
@@ -672,9 +684,14 @@ fgb() {
             fi
 
             # Calculate spacers
-            local spacer
+            local spacer num_spacers=2
+            if "$c_show_wt_flag"; then
+                num_spacers="$(( num_spacers + 1 ))"
+                total_width="$(( total_width + 2 ))"
+            fi
             spacer="$(
-                echo "$WIDTH_OF_WINDOW $total_width" | awk '{printf("%.0f", ($1 - $2) / 2)}'
+                echo "$WIDTH_OF_WINDOW $total_width $num_spacers" | \
+                    awk '{printf("%.0f", ($1 - $2) / $3)}'
             )"
             if [ "$spacer" -lt 0 ]; then
                 spacer=0
@@ -682,9 +699,18 @@ fgb() {
                 spacer=$(( spacer < 4 ? spacer : 4 ))
             fi
 
+            local wt_flag
             while IFS='' read -r branch; do
                 # Adjust the branch name column width based on the number of color code characters
                 printf "%-$(( c_branch_width + 13 ))b" "[${col_y_bold}$branch${col_reset}]"
+                if "$c_show_wt_flag"; then
+                    if [[ -n "${c_worktree_path_map["$branch"]}" ]]; then
+                        wt_flag="+"
+                    else
+                        wt_flag=" "
+                    fi
+                    printf "%${spacer}s${col_bold}%s${col_reset}" " " "$wt_flag"
+                fi
                 if "$c_show_author"; then
                     author_name="${c_branch_author_map["$branch"]}"
                     printf \
@@ -926,6 +952,8 @@ fgb() {
         __fgb_worktree() {
             # Manage Git worktrees
 
+            c_show_wt_flag=true
+
             __fgb_worktree_set_vars
 
             local subcommand="$1"
@@ -988,6 +1016,7 @@ fgb() {
             col_reset='\033[0m' \
             col_g='\033[32m' \
             col_b='\033[34m' \
+            col_bold='\033[1m' \
             col_r_bold='\033[1;31m' \
             col_g_bold='\033[1;32m' \
             col_y_bold='\033[1;33m' \
@@ -1000,6 +1029,7 @@ fgb() {
             c_wt_path_width=0 \
             c_show_author=true \
             c_show_date=true \
+            c_show_wt_flag=false \
             c_date_width=17 # Example: (99 minutes ago)
 
         local -A \
