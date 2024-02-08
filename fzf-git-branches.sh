@@ -287,7 +287,6 @@ fgb() {
                 case "$1" in
                     -h | --help)
                         echo "${usage_message[branch_list]}"
-                        return
                         ;;
                     --* | -*)
                         echo "error: unknown option: \`$1'" >&2
@@ -363,7 +362,6 @@ fgb() {
                         ;;
                     -h | --help)
                         echo "${usage_message[branch_manage]}"
-                        return
                         ;;
                     --* | -*)
                         echo "error: unknown option: \`$1'" >&2
@@ -459,7 +457,6 @@ fgb() {
                     ;;
                 -h | --help)
                     echo "${usage_message[branch]}"
-                    return
                     ;;
                 --* | -*)
                     echo "error: unknown option: \`$subcommand'" >&2
@@ -639,7 +636,6 @@ fgb() {
                         ;;
                     -h | --help)
                         echo "${usage_message[worktree_list]}"
-                        return
                         ;;
                     --* | -*)
                         echo "error: unknown option: \`$1'" >&2
@@ -775,7 +771,6 @@ fgb() {
                         ;;
                     -h | --help)
                         echo "${usage_message[worktree_create]}"
-                        return
                         ;;
                     --* | -*)
                         echo "error: unknown option: \`$1'" >&2
@@ -853,22 +848,15 @@ fgb() {
             lines="$(sed 's/^.\(.*\).$/\1/' <<< "$lines")"
 
             case $key in
-                "$del_key")
-                    __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force"
-                    return $?
-                    ;;
+                "$del_key") __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force" ;;
                 "$info_key")
                     local branch; branch="$(tail -1 <<< "$lines")"
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
                     echo -e "committer : ${col_g}${c_branch_author_map["$branch"]}${col_reset}"
                     echo -e "date      : ${col_b}${c_branch_date_map["$branch"]}${col_reset}"
                     echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
-                    return
                     ;;
-                *)
-                    __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")"
-                    return $?
-                    ;;
+                *) __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")" ;;
             esac
         }
 
@@ -896,7 +884,6 @@ fgb() {
                         ;;
                     -h | --help)
                         echo "${usage_message[worktree_total]}"
-                        return
                         ;;
                     --* | -*)
                         echo "error: unknown option: \`$1'" >&2
@@ -952,10 +939,7 @@ fgb() {
             lines="$(sed 's/^.\(.*\).$/\1/' <<< "$lines")"
 
             case $key in
-                "$del_key")
-                    __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force"
-                    return $?
-                    ;;
+                "$del_key") __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force" ;;
                 "$info_key")
                     local branch; branch="$(tail -1 <<< "$lines")"
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
@@ -966,12 +950,8 @@ fgb() {
                     echo -e "committer : ${col_g}${c_branch_author_map["$branch"]}${col_reset}"
                     echo -e "date      : ${col_b}${c_branch_date_map["$branch"]}${col_reset}"
                     echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
-                    return
                     ;;
-                *)
-                    __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")"
-                    return $?
-                    ;;
+                *) __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")" ;;
             esac
         }
 
@@ -1004,7 +984,6 @@ fgb() {
                         ;;
                     -h | --help)
                         echo "${usage_message[worktree_manage]}"
-                        return
                         ;;
                     --* | -*)
                         echo "error: unknown option: \`$1'" >&2
@@ -1053,10 +1032,7 @@ fgb() {
             lines="$(sed 's/^.\(.*\).$/\1/' <<< "$lines")"
 
             case $key in
-                "$del_key")
-                    __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force"
-                    return $?
-                    ;;
+                "$del_key") __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force" ;;
                 "$info_key")
                     local branch; branch="$(tail -1 <<< "$lines")"
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
@@ -1064,12 +1040,8 @@ fgb() {
                     echo -e "committer : ${col_g}${c_branch_author_map["$branch"]}${col_reset}"
                     echo -e "date      : ${col_b}${c_branch_date_map["$branch"]}${col_reset}"
                     echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
-                    return
                     ;;
-                *)
-                    __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")"
-                    return $?
-                    ;;
+                *) __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")" ;;
             esac
         }
 
@@ -1174,7 +1146,6 @@ fgb() {
                     ;;
                 -h | --help)
                     echo "${usage_message[worktree]}"
-                    return
                     ;;
                 --* | -*)
                     echo "error: unknown option: \`$subcommand'" >&2
@@ -1454,12 +1425,10 @@ fgb() {
                 ;;
             -h | --help)
                 echo "${usage_message[fgb]}"
-                return
                 ;;
             -v | --version)
                 echo "$version_message"
                 echo "$copyright_message"
-                return
                 ;;
             --* | -*)
                 echo "error: unknown option: \`$fgb_command'" >&2
