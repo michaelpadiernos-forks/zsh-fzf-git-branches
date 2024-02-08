@@ -207,12 +207,6 @@ fgb() {
                 ref_types=("heads" "remotes")
             fi
 
-            local -A type_strip
-            type_strip=(
-                ["heads"]=2
-                ["remotes"]=1
-            )
-
             local ref_type ref_name refs
             for ref_type in "${ref_types[@]}"; do
                 refs=$(git for-each-ref \
@@ -220,19 +214,13 @@ fgb() {
                         --sort="$sort_order" \
                         refs/"$ref_type"
                 )
-                if [[ -n "$filter_list" ]]; then
-                    filter_list="$(tr ": " "\n" <<< "$filter_list" | sed "s|^|refs/$ref_type/|")"
-                fi
                 while read -r ref_name; do
                     if [[ -n "$filter_list" ]]; then
                         if ! grep -q -E "$ref_name$" <<< "$filter_list"; then
                             continue
                         fi
                     fi
-                    git \
-                        for-each-ref \
-                        --format="%(refname:lstrip=${type_strip[$ref_type]})" \
-                        "$ref_name"
+                    git for-each-ref --format='%(refname)' "$ref_name"
                 done <<< "$refs"
             done
         }
@@ -254,16 +242,28 @@ fgb() {
             local branch_list="$1"
             local \
                 branch \
+                branch_name \
                 branch_curr_width \
                 author_name \
                 author_curr_width
             while IFS='' read -r branch; do
-                c_branch_author_map["$branch"]="$(git log -1 --pretty=format:"%cn" "$branch")"
+                branch_name="$branch"
+                if [[ "$branch" == refs/heads/* ]]; then
+                    # Remove first two components of the reference name for local branches
+                    branch_name="${branch_name#*/}"
+                    branch_name="${branch_name#*/}"
+                elif [[ "$branch" == refs/remotes/* ]]; then
+                    # Remove the first component of the reference name for remote branches
+                    branch_name="${branch_name#*/}"
+                fi
+                c_branch_author_map["$branch"]="$(
+                    git log -1 --pretty=format:"%cn" "$branch"
+                )"
                 c_branch_date_map["$branch"]="$(
                     git log -1 --format="%cd" --date=relative "$branch"
                 )"
                 # Calculate column widths
-                branch_curr_width="${#branch}"
+                branch_curr_width="${#branch_name}"
                 c_branch_width="$((
                         branch_curr_width > c_branch_width ?
                         branch_curr_width :
@@ -336,10 +336,17 @@ fgb() {
             fi
 
             while IFS='' read -r branch; do
-                author_name="${c_branch_author_map["$branch"]}"
-                author_date="${c_branch_date_map["$branch"]}"
+                branch_name="$branch"
+                if [[ "$branch" == refs/heads/* ]]; then
+                    # Remove first two components of the reference name for local branches
+                    branch_name="${branch_name#*/}"
+                    branch_name="${branch_name#*/}"
+                elif [[ "$branch" == refs/remotes/* ]]; then
+                    # Remove the first component of the reference name for remote branches
+                    branch_name="${branch_name#*/}"
+                fi
                 # Adjust the branch name column width based on the number of color code characters
-                printf "%-$(( c_branch_width + 13 ))b" "[${col_y_bold}$branch${col_reset}]"
+                printf "%-$(( c_branch_width + 13 ))b" "[${col_y_bold}${branch_name}${col_reset}]"
                 if "$c_show_author"; then
                     author_name="${c_branch_author_map["$branch"]}"
                     printf \
@@ -709,8 +716,17 @@ fgb() {
 
             local wt_path author_name author_date
             while IFS='' read -r branch; do
+                branch_name="$branch"
+                if [[ "$branch" == refs/heads/* ]]; then
+                    # Remove first two components of the reference name for local branches
+                    branch_name="${branch_name#*/}"
+                    branch_name="${branch_name#*/}"
+                elif [[ "$branch" == refs/remotes/* ]]; then
+                    # Remove the first component of the reference name for remote branches
+                    branch_name="${branch_name#*/}"
+                fi
                 # Adjust the branch name column width based on the number of color code characters
-                printf "%-$(( c_branch_width + 13 ))b" "[${col_y_bold}$branch${col_reset}]"
+                printf "%-$(( c_branch_width + 13 ))b" "[${col_y_bold}${branch_name}${col_reset}]"
                 if "$c_show_wt_path"; then
                     if [[ -n "${c_worktree_path_map["$branch"]}" ]]; then
                         wt_path="${c_worktree_path_map["$branch"]}"
@@ -808,13 +824,13 @@ fgb() {
                     if grep -q -E "${branch}$" <<< "$c_worktree_branches"; then
                         continue
                     fi
-                    if grep -q -E "^remotes/.*/.*$" <<< "$branch"; then
+                    if [[ "$branch" == refs/remotes/* ]]; then
                         while IFS='' read -r wt_branch; do
                             upstream="$(
                                 git \
                                     for-each-ref \
                                     --format \
-                                    '%(upstream:lstrip=1)' "refs/heads/$wt_branch"
+                                    '%(upstream)' "$wt_branch"
                             )"
                             if [[ "$branch" == "$upstream" ]]; then
                                 continue 2
@@ -1105,7 +1121,7 @@ fgb() {
 
             # Remove brackets from the branch names (3rd column in the output) using sed
             c_worktree_branches="$(
-                rev <<< "$wt_list" | cut -d' ' -f1 | rev | sed 's/^.\(.*\).$/\1/'
+                rev <<< "$wt_list" | cut -d' ' -f1 | rev | sed 's|^.\(.*\).$|\1|;s|^|refs/heads/|'
             )"
 
             __fgb_branch_set_vars "$c_worktree_branches"
@@ -1116,7 +1132,9 @@ fgb() {
                 wt_path \
                 wt_path_curr_width
             while IFS='' read -r line; do
-                branch="$(rev <<< "$line" | cut -d' ' -f1 | rev | sed 's/^.\(.*\).$/\1/')"
+                branch="$(
+                    rev <<< "$line" | cut -d' ' -f1 | rev | sed 's|^.\(.*\).$|\1|;s|^|refs/heads/|'
+                )"
                 c_worktree_path_map["$branch"]="$(
                     rev <<< "$line" | cut -d' ' -f3- | sed 's/^[[:space:]]*//' | rev
                 )"
