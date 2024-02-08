@@ -97,7 +97,7 @@ fgb() {
                 return 1
             fi
 
-            local branch_name is_remote remote_name user_prompt exit_code
+            local branch_name is_remote remote_name user_prompt
             local branches_to_delete="${positional_args[*]}"
             while IFS='' read -r branch_name; do
                 is_remote=false
@@ -117,8 +117,7 @@ fgb() {
                     ")
                     # NOTE: Avoid --force here as it's no undoable operation for remote branches
                     if __fgb_confirmation_dialog "$user_prompt"; then
-                        git push --delete "$remote_name" "$branch_name"
-                        exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
+                        git push --delete "$remote_name" "$branch_name" || return $?
                     fi
                 else
                     user_prompt=$(__fgb_stdout_unindented "
@@ -145,9 +144,7 @@ fgb() {
                             # NOTE: Avoid --force here
                             # as it's not clear if intended for non-merged branches
                             if __fgb_confirmation_dialog "$user_prompt"; then
-                                git branch -D "$branch_name"
-                                exit_code=$?
-                                if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
+                                git branch -D "$branch_name" || return $?
                             fi
                         else
                             echo "$output"
@@ -232,11 +229,6 @@ fgb() {
             if [ $# -ne 1 ]; then
                 echo "error: missing argument: branch list"
                 return 41
-            fi
-
-            if ! git rev-parse --show-toplevel &>/dev/null; then
-                echo "Not inside a Git repository. Exit..."
-                return 42
             fi
 
             local branch_list="$1"
@@ -412,6 +404,10 @@ fgb() {
                 __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force"
                 return $?
             else
+                if ! git rev-parse --show-toplevel &>/dev/null; then
+                    echo "Not inside a Git worktree. Exit..."
+                    return 128
+                fi
                 local branch_name; branch_name="$(tail -1 <<< "$lines")"
                 if [[ "$branch_name" == remotes/*/* ]]; then
                     # Remove first two components of the reference name (remotes/<upstream>/)
@@ -448,16 +444,19 @@ fgb() {
                 shift
             done
 
-            if ! c_branches="$(__fgb_git_branch_list "${branch_list_args[@]}")"; then
-                echo -e "$c_branches"
-                return 1
-            fi
-
-            __fgb_branch_set_vars "$c_branches"
-
             case $subcommand in
-                list) __fgb_branch_list "${other_args[@]}" ;;
-                manage) __fgb_branch_manage "${other_args[@]}" ;;
+                list | manage)
+                    if ! git rev-parse --git-dir &>/dev/null; then
+                        echo "Not inside a Git repository. Exit..."
+                        return 128
+                    fi
+                    c_branches="$(__fgb_git_branch_list "${branch_list_args[@]}")"
+                    __fgb_branch_set_vars "$c_branches"
+                    case $subcommand in
+                        list) __fgb_branch_list "${other_args[@]}" ;;
+                        manage) __fgb_branch_manage "${other_args[@]}" ;;
+                    esac
+                    ;;
                 -h | --help)
                     echo "${usage_message[branch]}"
                     return
@@ -499,9 +498,7 @@ fgb() {
                 return 1
             fi
 
-            local worktrees_to_delete="${positional_args[*]}"
-            local exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
-            local branch_name wt_path user_prompt
+            local worktrees_to_delete="${positional_args[*]}" branch_name wt_path user_prompt
             while IFS='' read -r branch_name; do
                 if [[ "$branch_name" == remotes/*/* ]]; then
                     # Remove first two components of the reference name (remotes/<upstream>/)
@@ -617,11 +614,6 @@ fgb() {
         __fgb_worktree_list() {
             # List worktrees in a git repository
 
-            if ! git worktree list | grep -q " (bare)$"; then
-                echo "Not inside a bare Git repository. Exit..."
-                return
-            fi
-
             local branch_list_args=()
 
             while [ $# -gt 0 ]; do
@@ -662,6 +654,11 @@ fgb() {
                 esac
                 shift
             done
+
+            if ! (git worktree list | grep -q " (bare)$") &>/dev/null; then
+                echo "Not inside a bare Git repository. Exit..."
+                return 128
+            fi
 
             local sorted_branches_list
             if ! sorted_branches_list="$(__fgb_git_branch_list "${branch_list_args[@]}")"; then
@@ -758,11 +755,6 @@ fgb() {
         __fgb_worktree_create() {
             # Create a new worktree for a given branch
 
-            if [[ -z "$(git worktree list | grep " (bare)$" | cut -d' ' -f1)" ]]; then
-                echo "Not inside a bare Git repository. Exit..."
-                return
-            fi
-
             local branch_list_args=() positional_args=()
 
             while [ $# -gt 0 ]; do
@@ -796,6 +788,11 @@ fgb() {
                 esac
                 shift
             done
+
+            if ! (git worktree list | grep -q " (bare)$") &>/dev/null; then
+                echo "Not inside a bare Git repository. Exit..."
+                return 128
+            fi
 
             local branches
             if ! branches="$(__fgb_git_branch_list "${branch_list_args[@]}")"; then
@@ -879,11 +876,6 @@ fgb() {
         __fgb_worktree_total() {
             # Manage Git worktrees
 
-            if [[ -z "$(git worktree list | grep " (bare)$" | cut -d' ' -f1)" ]]; then
-                echo "Not inside a bare Git repository. Exit..."
-                return
-            fi
-
             local branch_list_args=() positional_args=()
 
             while [ $# -gt 0 ]; do
@@ -917,6 +909,11 @@ fgb() {
                 esac
                 shift
             done
+
+            if ! (git worktree list | grep -q " (bare)$") &>/dev/null; then
+                echo "Not inside a bare Git repository. Exit..."
+                return 128
+            fi
 
             if ! c_branches="$(__fgb_git_branch_list "${branch_list_args[@]}")"; then
                 echo -e "$c_branches" >&2
@@ -982,11 +979,6 @@ fgb() {
         __fgb_worktree_manage() {
             # Manage Git worktrees
 
-            if [[ -z "$(git worktree list | grep " (bare)$" | cut -d' ' -f1)" ]]; then
-                echo "Not inside a bare Git repository. Exit..."
-                return
-            fi
-
             local branch_list_args=() positional_args=() force
 
             while [ $# -gt 0 ]; do
@@ -1025,6 +1017,11 @@ fgb() {
                 esac
                 shift
             done
+
+            if ! (git worktree list | grep -q " (bare)$") &>/dev/null; then
+                echo "Not inside a bare Git repository. Exit..."
+                return 128
+            fi
 
             local del_key="ctrl-d" info_key="ctrl-o"
             local header="Manage Git Worktrees:"
@@ -1080,20 +1077,21 @@ fgb() {
         __fgb_worktree_set_vars() {
             # Define worktree related variables
 
-            if ! c_bare_repo_path="$(
+            if ! (git worktree list | grep -q " (bare)$") &>/dev/null; then
+                echo "Not inside a bare Git repository. Exit..."
+                return 128
+            fi
+
+            c_bare_repo_path="$(
                 git worktree list | \
                     grep " (bare)$" | \
                     rev | \
                     cut -d' ' -f2- | \
                     sed 's/^[[:space:]]*//' | \
                     rev
-                )"; then
-                echo "Not inside a bare Git repository. Exit..."
-                return 42
-            fi
+            )"
 
-            local wt_list
-            wt_list="$(git worktree list | sed '1d')"
+            local wt_list; wt_list="$(git worktree list | sed '1d')"
 
             # Remove brackets from the branch names (3rd column in the output) using sed
             c_worktree_branches="$(
@@ -1133,12 +1131,12 @@ fgb() {
         __fgb_worktree() {
             # Manage Git worktrees
 
-            __fgb_worktree_set_vars
-
             local subcommand="$1"
             shift
             case $subcommand in
                 list | manage)
+                    __fgb_worktree_set_vars || return $?
+
                     local positional_args=()
                     while [ $# -gt 0 ]; do
                         case "$1" in
@@ -1158,23 +1156,21 @@ fgb() {
                             __fgb_worktree_list \
                                 "${positional_args[@]}" \
                                 --filter="$c_worktree_branches"
-                            exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                             ;;
                         manage)
                             __fgb_worktree_manage \
                                 "${positional_args[@]}" \
                                 --filter="$c_worktree_branches"
-                            exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                             ;;
                     esac
                     ;;
                 create)
+                    __fgb_worktree_set_vars || return $?
                     __fgb_worktree_create "$@"
-                    exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                     ;;
                 total)
+                    __fgb_worktree_set_vars || return $?
                     __fgb_worktree_total "$@"
-                    exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
                     ;;
                 -h | --help)
                     echo "${usage_message[worktree]}"
@@ -1437,7 +1433,6 @@ fgb() {
 
         local WIDTH_OF_WINDOW; WIDTH_OF_WINDOW=$(tput cols)
 
-        local exit_code=
         case "$fgb_command" in
             branch)
                 case "$fgb_subcommand" in
@@ -1445,10 +1440,7 @@ fgb() {
                         echo "${usage_message[$fgb_command]}" >&2
                         return 1
                         ;;
-                    *)
-                        __fgb_branch "$@"
-                        exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
-                        ;;
+                    *) __fgb_branch "$@" ;;
                 esac
                 ;;
             worktree)
@@ -1457,10 +1449,7 @@ fgb() {
                         echo "${usage_message[$fgb_command]}" >&2
                         return 1
                         ;;
-                    *)
-                        __fgb_worktree "$@"
-                        exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
-                        ;;
+                    *) __fgb_worktree "$@" ;;
                 esac
                 ;;
             -h | --help)
