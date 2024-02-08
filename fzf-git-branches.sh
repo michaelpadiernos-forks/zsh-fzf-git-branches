@@ -707,29 +707,22 @@ fgb() {
                 spacer=$(( spacer < 4 ? spacer : 4 ))
             fi
 
-            local wt_path wt_path_color author_name author_date
+            local wt_path author_name author_date
             while IFS='' read -r branch; do
                 # Adjust the branch name column width based on the number of color code characters
                 printf "%-$(( c_branch_width + 13 ))b" "[${col_y_bold}$branch${col_reset}]"
                 if "$c_show_wt_path"; then
                     if [[ -n "${c_worktree_path_map["$branch"]}" ]]; then
                         wt_path="${c_worktree_path_map["$branch"]}"
-                        if [ -d "$wt_path" ]; then
-                            wt_path="$(realpath --relative-to="$c_bare_repo_path" "$wt_path")"
-                            if [[ ! "$wt_path" =~ ^\.\./ ]]; then
-                                wt_path="./$wt_path"
-                            fi
-                            wt_path_color="$col_bold"
-                        else
-                            wt_path="${wt_path#${c_wt_path_not_found_prefix}}"
-                            wt_path_color="$col_r_bold"
+                        wt_path="$(realpath --relative-to="$c_bare_repo_path" "$wt_path")"
+                        if [[ ! "$wt_path" =~ ^\.\./ ]]; then
+                            wt_path="./$wt_path"
                         fi
                     else
                         wt_path=" "
-                        wt_path_color="$col_bold"
                     fi
                     printf \
-                        "%${spacer}s${wt_path_color}%-${c_wt_path_width}s${col_reset}" \
+                        "%${spacer}s${col_bold}%-${c_wt_path_width}s${col_reset}" \
                         " " \
                         "$wt_path"
                 fi
@@ -1000,13 +993,9 @@ fgb() {
                 )"
                 # Calculate column widths
                 wt_path="${c_worktree_path_map["$branch"]}"
-                if [ -d "$wt_path" ]; then
-                    wt_path="$(realpath --relative-to="$c_bare_repo_path" "$wt_path")"
-                    if [[ ! "$wt_path" =~ ^\.\./ ]]; then
-                        wt_path="./$wt_path"
-                    fi
-                else
-                    c_worktree_path_map["$branch"]="${c_wt_path_not_found_prefix}${wt_path}"
+                wt_path="$(realpath --relative-to="$c_bare_repo_path" "$wt_path")"
+                if [[ ! "$wt_path" =~ ^\.\./ ]]; then
+                    wt_path="./$wt_path"
                 fi
                 wt_path_curr_width="${#wt_path}"
                 c_wt_path_width="$((
@@ -1099,7 +1088,6 @@ fgb() {
             c_show_date=true \
             c_show_wt_flag=false \
             c_show_wt_path=true \
-            c_wt_path_not_found_prefix="<PATH_NOT_FOUND>" \
             c_date_width=17 # Example: (99 minutes ago)
 
         local -A \
