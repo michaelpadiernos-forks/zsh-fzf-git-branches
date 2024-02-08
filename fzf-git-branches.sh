@@ -812,7 +812,7 @@ fgb() {
 
             __fgb_branch_set_vars "$c_branches"
 
-            local del_key="ctrl-d" info_key="ctrl-i"
+            local del_key="ctrl-d" info_key="ctrl-o"
             local header="Create a Git Worktree:"
             header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $info_key:info"
             local fzf_cmd="\
@@ -919,7 +919,7 @@ fgb() {
 
             __fgb_branch_set_vars "$c_branches"
 
-            local del_key="ctrl-d" info_key="ctrl-i"
+            local del_key="ctrl-d" info_key="ctrl-o"
             local header="Manage Git Worktrees:"
             header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $info_key:info"
             local fzf_cmd="\
@@ -1020,7 +1020,7 @@ fgb() {
                 shift
             done
 
-            local del_key="ctrl-d" info_key="ctrl-i"
+            local del_key="ctrl-d" info_key="ctrl-o"
             local header="Manage Git Worktrees:"
             header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $info_key:info"
             local fzf_cmd="\
