@@ -438,14 +438,6 @@ fgb() {
                     --sort=*)
                         branch_list_args+=("$1")
                         ;;
-                    --filter)
-                        branch_list_args+=("$1")
-                        shift
-                        branch_list_args+=("$1")
-                        ;;
-                    --filter=*)
-                        branch_list_args+=("$1")
-                        ;;
                     -r | --remotes | -a | --all)
                         branch_list_args+=("$1")
                         ;;
@@ -783,14 +775,6 @@ fgb() {
                     --sort=*)
                         branch_list_args+=("$1")
                         ;;
-                    --filter)
-                        branch_list_args+=("$1")
-                        shift
-                        branch_list_args+=("$1")
-                        ;;
-                    --filter=*)
-                        branch_list_args+=("$1")
-                        ;;
                     -r | --remotes | -a | --all)
                         branch_list_args+=("$1")
                         ;;
@@ -910,14 +894,6 @@ fgb() {
                         branch_list_args+=("$1")
                         ;;
                     --sort=*)
-                        branch_list_args+=("$1")
-                        ;;
-                    --filter)
-                        branch_list_args+=("$1")
-                        shift
-                        branch_list_args+=("$1")
-                        ;;
-                    --filter=*)
                         branch_list_args+=("$1")
                         ;;
                     -r | --remotes | -a | --all)
@@ -1297,9 +1273,6 @@ fgb() {
             |          Sort branches by <sort>:
             |            refname (default)
             |
-            |  --filter=<filter>
-            |          Filter branches by <filter> string (colon or space separated)
-            |
             |  -r, --remotes
             |          List remote branches
             |
@@ -1322,9 +1295,6 @@ fgb() {
             |  -s, --sort=<sort>
             |          Sort branches by <sort>:
             |            -committerdate (default)
-            |
-            |  --filter=<filter>
-            |          Filter branches by <filter> string (colon or space separated)
             |
             |  -r, --remotes
             |          List remote branches
