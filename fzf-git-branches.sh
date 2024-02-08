@@ -803,9 +803,23 @@ fgb() {
                 return 1
             fi
 
-            c_branches="$(while read -r branch; do
+            local upstream wt_branch
+            c_branches="$(while IFS='' read -r branch; do
                     if grep -q -E "${branch}$" <<< "$c_worktree_branches"; then
                         continue
+                    fi
+                    if grep -q -E "^remotes/.*/.*$" <<< "$branch"; then
+                        while IFS='' read -r wt_branch; do
+                            upstream="$(
+                                git \
+                                    for-each-ref \
+                                    --format \
+                                    '%(upstream:lstrip=1)' "refs/heads/$wt_branch"
+                            )"
+                            if [[ "$branch" == "$upstream" ]]; then
+                                continue 2
+                            fi
+                        done <<< "$c_worktree_branches"
                     fi
                     echo "$branch"
             done <<< "$branches")"
