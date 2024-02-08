@@ -747,6 +747,121 @@ fgb() {
         }
 
 
+        __fgb_worktree_create() {
+            # Create a new worktree for a given branch
+
+            if [[ -z "$(git worktree list | grep " (bare)$" | cut -d' ' -f1)" ]]; then
+                echo "Not inside a bare Git repository. Exit..."
+                return
+            fi
+
+            local branch_list_args=() positional_args=()
+
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                    -s | --sort)
+                        branch_list_args+=("$1")
+                        shift
+                        branch_list_args+=("$1")
+                        ;;
+                    --sort=*)
+                        branch_list_args+=("$1")
+                        ;;
+                    --filter)
+                        branch_list_args+=("$1")
+                        shift
+                        branch_list_args+=("$1")
+                        ;;
+                    --filter=*)
+                        branch_list_args+=("$1")
+                        ;;
+                    -r | --remotes | -a | --all)
+                        branch_list_args+=("$1")
+                        ;;
+                    -f | --force)
+                        force="--force"
+                        ;;
+                    -h | --help)
+                        echo "${usage_message[worktree_create]}"
+                        return
+                        ;;
+                    --* | -*)
+                        echo "error: unknown option: \`$1'" >&2
+                        echo "${usage_message[worktree_create]}" >&2
+                        return 1
+                        ;;
+                    *)
+                        positional_args+=("$1")
+                        ;;
+                esac
+                shift
+            done
+
+            local branches
+            if ! branches="$(__fgb_git_branch_list "${branch_list_args[@]}")"; then
+                echo -e "$branches" >&2
+                return 1
+            fi
+
+            c_branches="$(while read -r branch; do
+                    if grep -q -E "${branch}$" <<< "$c_worktree_branches"; then
+                        continue
+                    fi
+                    echo "$branch"
+            done <<< "$branches")"
+
+            __fgb_branch_set_vars "$c_branches"
+
+            local del_key="ctrl-d" info_key="ctrl-i"
+            local header="Create a Git Worktree:"
+            header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $info_key:info"
+            local fzf_cmd="\
+                $FZF_CMD_GLOB \
+                    --expect='"$del_key,$info_key"' \
+                    --header '$header' \
+                "
+
+            if [[ "${#positional_args[@]}" -gt 0 ]]; then
+                fzf_cmd+=" --query='${positional_args[*]}'"
+            fi
+
+            local lines; lines="$(
+                __fgb_branch_list | \
+                    eval "$fzf_cmd" | \
+                    cut -d' ' -f1
+            )"
+
+            if [[ -z "$lines" ]]; then
+                return
+            fi
+
+            local key; key=$(head -1 <<< "$lines")
+
+            # Remove brackets
+            # shellcheck disable=SC2001
+            lines="$(sed 's/^.\(.*\).$/\1/' <<< "$lines")"
+
+            case $key in
+                "$del_key")
+                    __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force"
+                    return $?
+                    ;;
+                "$info_key")
+                    local branch; branch="$(tail -1 <<< "$lines")"
+                    echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
+                    echo -e "committer : ${col_g}${c_branch_author_map["$branch"]}${col_reset}"
+                    echo -e "date      : ${col_b}${c_branch_date_map["$branch"]}${col_reset}"
+                    echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
+                    return
+                    ;;
+                *)
+                    __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")"
+                    return $?
+                    ;;
+            esac
+        }
+
+
         __fgb_worktree_total() {
             # Manage Git worktrees
 
@@ -779,7 +894,7 @@ fgb() {
                         branch_list_args+=("$1")
                         ;;
                     -f | --force)
-                        force=true
+                        force="--force"
                         ;;
                     -h | --help)
                         echo "${usage_message[worktree_total]}"
@@ -1045,6 +1160,10 @@ fgb() {
                             ;;
                     esac
                     ;;
+                create)
+                    __fgb_worktree_create "$@"
+                    exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
+                    ;;
                 total)
                     __fgb_worktree_total "$@"
                     exit_code=$?; if [ "$exit_code" -ne 0 ]; then return "$exit_code"; fi
@@ -1255,6 +1374,32 @@ fgb() {
             |          Show help message
             ")"
 
+            ["worktree_create"]="$(__fgb_stdout_unindented "
+            |Usage: fgb worktree create [<args>] [<query>]
+            |
+            |Create a new worktree based on a selected git branch
+            |
+            |Query:
+            |  <query>  Query to filter branches by using fzf
+            |
+            |Options:
+            |  -s, --sort=<sort>
+            |          Sort branches by <sort>:
+            |            -committerdate (default)
+            |
+            |  -r, --remotes
+            |          List remote branches
+            |
+            |  -a, --all
+            |          List all branches
+            |
+            |  -f, --force
+            |          Suppress confirmation dialog for non-dangerous operations
+            |
+            |  -h, --help
+            |          Show help message
+            ")"
+
             ["worktree_total"]="$(__fgb_stdout_unindented "
             |Usage: fgb worktree total [<args>] [<query>]
             |
@@ -1358,6 +1503,7 @@ fgb() {
         __fgb_git_worktree_jump_or_create \
         __fgb_stdout_unindented \
         __fgb_worktree \
+        __fgb_worktree_create \
         __fgb_worktree_list \
         __fgb_worktree_manage \
         __fgb_worktree_total \
