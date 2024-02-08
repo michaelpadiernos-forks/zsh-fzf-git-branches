@@ -17,7 +17,6 @@ fgb() {
             --multi \
             --pointer='' \
             --preview 'git log --oneline --decorate --graph --color=always {1}' \
-            --select-1 \
         "
     local FZF_CMD_GLOB
     if [[ $fzf_version -gt $fzf_min_version ]]; then
