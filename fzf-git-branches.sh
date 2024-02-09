@@ -240,11 +240,11 @@ fgb() {
             while IFS='' read -r branch; do
                 branch_name="$branch"
                 if [[ "$branch" == refs/heads/* ]]; then
-                    # Remove first two components of the reference name for local branches
+                    # Remove first two segments of the reference name for local branches
                     branch_name="${branch_name#*/}"
                     branch_name="${branch_name#*/}"
                 elif [[ "$branch" == refs/remotes/* ]]; then
-                    # Remove the first component of the reference name for remote branches
+                    # Remove the first segment of the reference name for remote branches
                     branch_name="${branch_name#*/}"
                 fi
                 c_branch_author_map["$branch"]="$(
@@ -328,11 +328,11 @@ fgb() {
             while IFS='' read -r branch; do
                 branch_name="$branch"
                 if [[ "$branch" == refs/heads/* ]]; then
-                    # Remove first two components of the reference name for local branches
+                    # Remove first two segments of the reference name for local branches
                     branch_name="${branch_name#*/}"
                     branch_name="${branch_name#*/}"
                 elif [[ "$branch" == refs/remotes/* ]]; then
-                    # Remove the first component of the reference name for remote branches
+                    # Remove the first segment of the reference name for remote branches
                     branch_name="${branch_name#*/}"
                 fi
                 # Adjust the branch name column width based on the number of color code characters
@@ -407,7 +407,7 @@ fgb() {
                 fi
                 local branch_name; branch_name="$(tail -1 <<< "$lines")"
                 if [[ "$branch_name" == remotes/*/* ]]; then
-                    # Remove first two components of the reference name (remotes/<upstream>/)
+                    # Remove first two segments of the reference name (remotes/<upstream>/)
                     branch_name="${branch_name#*/}"
                     branch_name="${branch_name#*/}"
                 fi
@@ -497,7 +497,7 @@ fgb() {
             local worktrees_to_delete="${positional_args[*]}" branch_name wt_path user_prompt
             while IFS='' read -r branch_name; do
                 if [[ "$branch_name" == remotes/*/* ]]; then
-                    # Remove first two components of the reference name (remotes/<upstream>/)
+                    # Remove first two segments of the reference name (remotes/<upstream>/)
                     branch_name="${branch_name#*/}"
                     branch_name="${branch_name#*/}"
                 fi
@@ -574,7 +574,7 @@ fgb() {
             fi
             local branch_name="$1"
             if [[ "$branch_name" == remotes/*/* ]]; then
-                # Remove first two components of the reference name (remotes/<upstream>/)
+                # Remove first two segments of the reference name (remotes/<upstream>/)
                 branch_name="${branch_name#*/}"
                 branch_name="${branch_name#*/}"
             fi
@@ -702,11 +702,11 @@ fgb() {
             while IFS='' read -r branch; do
                 branch_name="$branch"
                 if [[ "$branch" == refs/heads/* ]]; then
-                    # Remove first two components of the reference name for local branches
+                    # Remove first two segments of the reference name for local branches
                     branch_name="${branch_name#*/}"
                     branch_name="${branch_name#*/}"
                 elif [[ "$branch" == refs/remotes/* ]]; then
-                    # Remove the first component of the reference name for remote branches
+                    # Remove the first segment of the reference name for remote branches
                     branch_name="${branch_name#*/}"
                 fi
                 # Adjust the branch name column width based on the number of color code characters
