@@ -514,13 +514,13 @@ fgb() {
                         |for branch '${col_b_bold}${branch_name}${col_reset}'?
                     ")
                     if "$force" || __fgb_confirmation_dialog "$user_prompt"; then
-                        user_prompt=$(__fgb_stdout_unindented "
+                        local success_message
+                        success_message=$(__fgb_stdout_unindented "
                             |${col_g_bold}Deleted${col_reset} worktree: \#
-                            |${col_y_bold}${wt_path}${col_reset}, \#
+                            |${col_y_bold}${wt_path}${col_reset} \#
                             |for branch '${col_b_bold}${branch_name}${col_reset}'
                         ")
                         if ! git worktree remove "$branch_name"; then
-                            local success_message="$user_prompt"
                             user_prompt=$(__fgb_stdout_unindented "
 
                                 |${col_r_bold}WARNING:${col_reset} \#
@@ -543,9 +543,12 @@ fgb() {
                                 fi
                             fi
                         else
-                            echo -e "$user_prompt"
+                            if "$force"; then
+                                echo -e "$success_message"
+                            fi
                             user_prompt=$(__fgb_stdout_unindented "
-                                |${col_r_bold}Delete${col_reset} the corresponding branch as well?
+                                |${col_r_bold}Delete${col_reset} the corresponding \#
+                                |'${col_b_bold}${branch_name}${col_reset}' branch as well?
                             ")
                             if __fgb_confirmation_dialog "$user_prompt"; then
                                 __fgb_git_branch_delete "$branch_name" --force
