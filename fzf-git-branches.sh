@@ -494,7 +494,15 @@ fgb() {
                 return 1
             fi
 
-            local worktrees_to_delete="${positional_args[*]}" branch_name wt_path user_prompt
+            local \
+                branch_name \
+                error_pattern \
+                is_in_target_wt=false \
+                output \
+                success_message \
+                user_prompt \
+                worktrees_to_delete="${positional_args[*]}" \
+                wt_path
             while IFS='' read -r branch_name; do
                 if [[ "$branch_name" == remotes/*/* ]]; then
                     # Remove first two segments of the reference name (remotes/<upstream>/)
@@ -504,7 +512,7 @@ fgb() {
                 wt_path="$(git worktree list | grep " \[${branch_name}\]$" | cut -d' ' -f1)"
                 if [[ -n "$wt_path" ]]; then
                     # Process a branch with a corresponding worktree
-                    local is_in_target_wt=false
+                    is_in_target_wt=false
                     if [[ "$PWD" == "$wt_path" ]]; then
                         cd "$c_bare_repo_path" && is_in_target_wt=true || return 1
                     fi
@@ -514,28 +522,40 @@ fgb() {
                         |for branch '${col_b_bold}${branch_name}${col_reset}'?
                     ")
                     if "$force" || __fgb_confirmation_dialog "$user_prompt"; then
-                        local success_message
                         success_message=$(__fgb_stdout_unindented "
                             |${col_g_bold}Deleted${col_reset} worktree: \#
                             |${col_y_bold}${wt_path}${col_reset} \#
                             |for branch '${col_b_bold}${branch_name}${col_reset}'
                         ")
-                        if ! git worktree remove "$branch_name"; then
+                        if ! output="$(git worktree remove "$branch_name" 2>&1)"; then
+                            error_pattern="^fatal: .* contains modified or untracked files,"
+                            error_pattern+=" use --force to delete it$"
+                            if ! grep -q "$error_pattern" <<< "$output"; then
+                                echo "$output"
+                                continue
+                            fi
                             user_prompt=$(__fgb_stdout_unindented "
-
+                                |
                                 |${col_r_bold}WARNING:${col_reset} \#
                                 |This will permanently reset/delete the following files:
-
+                                |
                                 |$(script -q /dev/null -c "git -C \"$wt_path\" status --short")
-
+                                |
                                 |in the ${col_y_bold}${wt_path}${col_reset} path.
-
+                                |
                                 |Are you sure you want to proceed?
                             ")
                             # NOTE: Avoid --force here as it's not undoable operation
                             if __fgb_confirmation_dialog "$user_prompt"; then
                                 if git worktree remove "$branch_name" --force; then
                                     echo -e "$success_message"
+                                fi
+                                user_prompt=$(__fgb_stdout_unindented "
+                                |${col_r_bold}Delete${col_reset} the corresponding \#
+                                |'${col_b_bold}${branch_name}${col_reset}' branch as well?
+                                ")
+                                if __fgb_confirmation_dialog "$user_prompt"; then
+                                    __fgb_git_branch_delete "$branch_name" --force
                                 fi
                             else
                                 if "$is_in_target_wt"; then
