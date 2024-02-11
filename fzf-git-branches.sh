@@ -509,7 +509,7 @@ fgb() {
                     branch_name="${branch_name#*/}"
                     branch_name="${branch_name#*/}"
                 fi
-                wt_path="$(git worktree list | grep " \[${branch_name}\]$" | cut -d' ' -f1)"
+                wt_path="${c_worktree_path_map["refs/heads/${branch_name}"]}"
                 if [[ -n "$wt_path" ]]; then
                     # Process a branch with a corresponding worktree
                     is_in_target_wt=false
@@ -527,7 +527,7 @@ fgb() {
                             |${col_y_bold}${wt_path}${col_reset} \#
                             |for branch '${col_b_bold}${branch_name}${col_reset}'
                         ")
-                        if ! output="$(git worktree remove "$branch_name" 2>&1)"; then
+                        if ! output="$(git worktree remove "$wt_path" 2>&1)"; then
                             error_pattern="^fatal: .* contains modified or untracked files,"
                             error_pattern+=" use --force to delete it$"
                             if ! grep -q "$error_pattern" <<< "$output"; then
@@ -547,8 +547,10 @@ fgb() {
                             ")
                             # NOTE: Avoid --force here as it's not undoable operation
                             if __fgb_confirmation_dialog "$user_prompt"; then
-                                if git worktree remove "$branch_name" --force; then
+                                if output="$( git worktree remove "$wt_path" --force)"; then
                                     echo -e "$success_message"
+                                else
+                                    echo "$output" >&2
                                 fi
                                 user_prompt=$(__fgb_stdout_unindented "
                                 |${col_r_bold}Delete${col_reset} the corresponding \#
