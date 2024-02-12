@@ -103,7 +103,7 @@ fgb() {
                 array_of_lines=("${(f@)$(echo "$branches_to_delete")}")
             else
                 local line
-                while IFS='' read -r line; do
+                while IFS= read -r line; do
                     array_of_lines+=( "$line" )
                 done <<< "$branches_to_delete"
             fi
@@ -225,7 +225,10 @@ fgb() {
                             continue
                         fi
                     fi
-                    git for-each-ref --format='%(refname)' "$ref_name"
+                    git \
+                        for-each-ref \
+                        --format='%(refname):%(committername):%(committerdate:relative)' \
+                        "$ref_name"
                 done <<< "$refs"
             done
         }
@@ -241,12 +244,15 @@ fgb() {
 
             local branch_list="$1"
             local \
+                line \
                 branch \
                 branch_name \
                 branch_curr_width \
                 author_name \
                 author_curr_width
-            while IFS='' read -r branch; do
+            while IFS= read -r line; do
+                # Remove the longest suffix starting with ':'
+                branch="${line%%:*}"
                 branch_name="$branch"
                 if [[ "$branch" == refs/heads/* ]]; then
                     # Remove first two segments of the reference name for local branches
@@ -256,12 +262,13 @@ fgb() {
                     # Remove the first segment of the reference name for remote branches
                     branch_name="${branch_name#*/}"
                 fi
-                c_branch_author_map["$branch"]="$(
-                    git log -1 --pretty=format:"%cn" "$branch"
-                )"
-                c_branch_date_map["$branch"]="$(
-                    git log -1 --format="%cd" --date=relative "$branch"
-                )"
+                # Remove the shortest prefix starting with ':'
+                author_name="${line#*:}"
+                # Remove the shortest suffix ending with ':'
+                author_name="${author_name%:*}"
+                c_branch_author_map["$branch"]="$author_name"
+                # Remove the longest prefix ending with ':'
+                c_branch_date_map["$branch"]="${line##*:}"
                 # Calculate column widths
                 branch_curr_width="${#branch_name}"
                 c_branch_width="$((
@@ -269,8 +276,6 @@ fgb() {
                         branch_curr_width :
                         c_branch_width
                 ))"
-                author_name="${c_branch_author_map["$branch"]}"
-
                 # Trim long author names with multiple parts delimited by '/'
                 author_curr_width="${#author_name}"
                 if [[ "$author_curr_width" -gt 25 && "$author_name" == *"/"* ]]; then
@@ -334,7 +339,9 @@ fgb() {
                 spacer=$(( spacer < 4 ? spacer : 4 ))
             fi
 
-            while IFS='' read -r branch; do
+            local branch branch_name author_name author_date
+            while IFS= read -r branch; do
+                branch="${branch%%:*}"
                 branch_name="$branch"
                 if [[ "$branch" == refs/heads/* ]]; then
                     # Remove first two segments of the reference name for local branches
@@ -518,7 +525,7 @@ fgb() {
                 array_of_lines=("${(f@)$(echo "$worktrees_to_delete")}")
             else
                 local line
-                while IFS='' read -r line; do
+                while IFS= read -r line; do
                     array_of_lines+=( "$line" )
                 done <<< "$worktrees_to_delete"
             fi
@@ -768,8 +775,9 @@ fgb() {
                 spacer=$(( spacer < 4 ? spacer : 4 ))
             fi
 
-            local wt_path author_name author_date
+            local branch wt_path author_name author_date
             while IFS='' read -r branch; do
+                branch="${branch%%:*}"
                 branch_name="$branch"
                 if [[ "$branch" == refs/heads/* ]]; then
                     # Remove first two segments of the reference name for local branches
@@ -864,8 +872,9 @@ fgb() {
                 return 1
             fi
 
-            local upstream wt_branch
-            c_branches="$(while IFS='' read -r branch; do
+            local line branch upstream wt_branch
+            c_branches="$(while IFS='' read -r line; do
+                    branch="${line%%:*}"
                     if grep -q -E "${branch}$" <<< "$c_worktree_branches"; then
                         continue
                     fi
@@ -882,7 +891,7 @@ fgb() {
                             fi
                         done <<< "$c_worktree_branches"
                     fi
-                    echo "$branch"
+                    echo "$line"
             done <<< "$branches")"
 
             __fgb_branch_set_vars "$c_branches"
