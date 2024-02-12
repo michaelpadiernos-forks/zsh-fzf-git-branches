@@ -97,7 +97,17 @@ fgb() {
 
             local branch_name is_remote remote_name user_prompt
             local branches_to_delete="${positional_args[*]}"
-            while IFS='' read -r branch_name; do
+            local -a array_of_lines
+            if [[ -n "${ZSH_VERSION-}" ]]; then
+                # shellcheck disable=SC2116,SC2296
+                array_of_lines=("${(f@)$(echo "$branches_to_delete")}")
+            else
+                local line
+                while IFS='' read -r line; do
+                    array_of_lines+=( "$line" )
+                done <<< "$branches_to_delete"
+            fi
+            for branch_name in "${array_of_lines[@]}"; do
                 is_remote=false
 
                 if [[ "$branch_name" == remotes/*/* ]]; then
@@ -149,7 +159,7 @@ fgb() {
                         fi
                     fi
                 fi
-            done <<< "$branches_to_delete"
+            done
         }
 
 
@@ -502,7 +512,17 @@ fgb() {
                 user_prompt \
                 worktrees_to_delete="${positional_args[*]}" \
                 wt_path
-            while IFS='' read -r branch_name; do
+            local -a array_of_lines
+            if [[ -n "${ZSH_VERSION-}" ]]; then
+                # shellcheck disable=SC2116,SC2296
+                array_of_lines=("${(f@)$(echo "$worktrees_to_delete")}")
+            else
+                local line
+                while IFS='' read -r line; do
+                    array_of_lines+=( "$line" )
+                done <<< "$worktrees_to_delete"
+            fi
+            for branch_name in "${array_of_lines[@]}"; do
                 if [[ "$branch_name" == remotes/*/* ]]; then
                     # Remove first two segments of the reference name (remotes/<upstream>/)
                     branch_name="${branch_name#*/}"
@@ -585,7 +605,7 @@ fgb() {
                     "$force" && force="--force" || force=""
                     __fgb_git_branch_delete "$branch_name" "$force"
                 fi
-            done <<< "$worktrees_to_delete"
+            done
         }
 
 
