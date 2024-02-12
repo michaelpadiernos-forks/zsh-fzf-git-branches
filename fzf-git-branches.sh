@@ -32,15 +32,14 @@ fgb() {
             # Confirmation dialog with a single 'y' character to accept
 
             local user_prompt="${1:-Are you sure?}"
-            local read_cmd ANS
-            if [[ -n "${ZSH_VERSION-}" ]]; then
-                read_cmd="read -k 1 ANS"
-            else
-                read_cmd="read -n 1 ANS"
-            fi
-
             echo -en "$user_prompt (y|N): "
-            eval "$read_cmd"
+
+            local ANS
+            if [[ -n "${ZSH_VERSION-}" ]]; then
+                read -rk 1 ANS
+            else
+                read -rn 1 ANS
+            fi
             echo # Move to the next line for a cleaner output
 
             case "$ANS" in
