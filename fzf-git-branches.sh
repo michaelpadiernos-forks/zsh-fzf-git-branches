@@ -434,6 +434,8 @@ fgb() {
 
 
         __fgb_branch() {
+            # Manage Git branches
+
             local subcommand="$1" branch_list_args=() other_args=()
             shift
 
@@ -776,7 +778,7 @@ fgb() {
             fi
 
             local branch wt_path author_name author_date
-            while IFS='' read -r branch; do
+            while IFS= read -r branch; do
                 branch="${branch%%:*}"
                 branch_name="$branch"
                 if [[ "$branch" == refs/heads/* ]]; then
@@ -873,13 +875,13 @@ fgb() {
             fi
 
             local line branch upstream wt_branch
-            c_branches="$(while IFS='' read -r line; do
+            c_branches="$(while IFS= read -r line; do
                     branch="${line%%:*}"
                     if grep -q -E "${branch}$" <<< "$c_worktree_branches"; then
                         continue
                     fi
                     if [[ "$branch" == refs/remotes/* ]]; then
-                        while IFS='' read -r wt_branch; do
+                        while IFS= read -r wt_branch; do
                             upstream="$(
                                 git \
                                     for-each-ref \
@@ -1155,7 +1157,7 @@ fgb() {
                 line \
                 wt_path \
                 wt_path_curr_width
-            while IFS='' read -r line; do
+            while IFS= read -r line; do
                 branch="$(
                     rev <<< "$line" | cut -d' ' -f1 | rev | sed 's|^.\(.*\).$|\1|;s|^|refs/heads/|'
                 )"
