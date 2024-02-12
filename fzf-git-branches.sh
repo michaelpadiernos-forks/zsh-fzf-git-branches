@@ -635,26 +635,22 @@ fgb() {
                 fi
                 message="Enter the path: "
                 wt_path=""
-                while [[ -z "$wt_path" ]] || \
-                    [[ "$(readlink -m "$wt_path")" == "/" ]] || \
-                    [[ "$(readlink -m "$wt_path")" == "$c_bare_repo_path" ]]; do
-                    wt_path="$branch_name"
-                    if [[ -n "${ZSH_VERSION-}" ]]; then
-                        vared -p "$message" wt_path
-                    else
-                        IFS= read -re -p "$message" -i "$wt_path" wt_path
-                    fi
-                    if [[ "$wt_path" != /* ]]; then
-                        wt_path="${c_bare_repo_path}/${wt_path}" # Relative path provided
-                    fi
-                    wt_path="$(readlink -m "$wt_path")" # Normalize the path
-                done
+                wt_path="$branch_name"
+                if [[ -n "${ZSH_VERSION-}" ]]; then
+                    vared -p "$message" wt_path
+                else
+                    IFS= read -re -p "$message" -i "$wt_path" wt_path
+                fi
+                if [[ "$wt_path" != /* ]]; then
+                    wt_path="${c_bare_repo_path}/${wt_path}" # Relative path provided
+                fi
+                wt_path="$(readlink -m "$wt_path")" # Normalize the path
                 if git worktree add "$wt_path" "$branch_name"; then
                     cd "$wt_path" || return 1
                     message=$(__fgb_stdout_unindented "
-                |Worktree ${col_y_bold}${wt_path}${col_reset} \#
-                |for branch '${col_b_bold}${branch_name}${col_reset}' created successfully.
-                |${col_g_bold}Jumped${col_reset} there.
+                        |Worktree ${col_y_bold}${wt_path}${col_reset} \#
+                        |for branch '${col_b_bold}${branch_name}${col_reset}' created successfully.
+                        |${col_g_bold}Jumped${col_reset} there.
                     ")
                     echo -e "$message"
                 fi
