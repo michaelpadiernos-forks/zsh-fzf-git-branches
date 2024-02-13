@@ -390,11 +390,13 @@ fgb() {
                 shift
             done
 
-            local del_key="ctrl-d"
+            local del_key="ctrl-d" info_key="ctrl-o"
+            local header="Manage Git Branches:"
+            header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $info_key:info"
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
-                    --expect='$del_key' \
-                    --header 'Manage Git Branches: ctrl-y:jump, ctrl-t:toggle, $del_key:delete' \
+                    --expect='"$del_key,$info_key"' \
+                    --header '$header' \
                 "
 
             if [[ "${#positional_args[@]}" -gt 0 ]]; then
@@ -413,23 +415,29 @@ fgb() {
             # shellcheck disable=SC2001
             lines="$(sed 's/^.\(.*\).$/\1/' <<< "$lines")"
 
-            if [[ $key == "$del_key" ]]; then
-                __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force"
-                return $?
-            else
-                if ! git rev-parse --show-toplevel &>/dev/null; then
-                    echo "Not inside a Git worktree. Exit..." >&2
-                    return 128
-                fi
-                local branch_name; branch_name="$(tail -1 <<< "$lines")"
-                if [[ "$branch_name" == remotes/*/* ]]; then
-                    # Remove first two segments of the reference name (remotes/<upstream>/)
-                    branch_name="${branch_name#*/}"
-                    branch_name="${branch_name#*/}"
-                fi
-                git switch "$branch_name"
-                return $?
-            fi
+            case $key in
+                "$del_key") __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force" ;;
+                "$info_key")
+                    local branch; branch="$(tail -1 <<< "$lines")"
+                    echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
+                    echo -e "committer : ${col_g}${c_branch_author_map["$branch"]}${col_reset}"
+                    echo -e "date      : ${col_b}${c_branch_date_map["$branch"]}${col_reset}"
+                    echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
+                    ;;
+                *)
+                    if ! git rev-parse --show-toplevel &>/dev/null; then
+                        echo "Not inside a Git worktree. Exit..." >&2
+                        return 128
+                    fi
+                    local branch_name; branch_name="$(tail -1 <<< "$lines")"
+                    if [[ "$branch_name" == remotes/*/* ]]; then
+                        # Remove first two segments of the reference name (remotes/<upstream>/)
+                        branch_name="${branch_name#*/}"
+                        branch_name="${branch_name#*/}"
+                    fi
+                    git switch "$branch_name"
+                    ;;
+            esac
         }
 
 
