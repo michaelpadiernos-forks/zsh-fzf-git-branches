@@ -906,12 +906,13 @@ fgb() {
 
             __fgb_branch_set_vars "$c_branches"
 
-            local del_key="ctrl-d" info_key="ctrl-o"
+            local del_key="ctrl-d" info_key="ctrl-o" verbose_key="ctrl-v"
             local header="Add a Git Worktree:"
             header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $info_key:info"
+            header+=" $verbose_key:verbose"
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
-                    --expect='"$del_key,$info_key"' \
+                    --expect='"$del_key,$info_key,$verbose_key"' \
                     --header '$header' \
                 "
 
@@ -944,6 +945,7 @@ fgb() {
                     echo -e "date      : ${col_b}${c_branch_date_map["$branch"]}${col_reset}"
                     echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
                     ;;
+                "$verbose_key") __fgb_git_worktree_jump_or_add "$(tail -1 <<< "$lines")" ;;
                 *) __fgb_git_worktree_jump_or_add "$(tail -1 <<< "$lines")" "$confirm" ;;
             esac
         }
@@ -1000,12 +1002,13 @@ fgb() {
 
             __fgb_branch_set_vars "$c_branches"
 
-            local del_key="ctrl-d" info_key="ctrl-o"
-            local header="Manage Git Worktrees:"
+            local del_key="ctrl-d" info_key="ctrl-o" verbose_key="ctrl-v"
+            local header="Manage Git Worktrees (total):"
             header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $info_key:info"
+            header+=" $verbose_key:verbose"
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
-                    --expect='"$del_key,$info_key"' \
+                    --expect='"$del_key,$info_key,$verbose_key"' \
                     --header '$header' \
                 "
 
@@ -1042,6 +1045,7 @@ fgb() {
                     echo -e "date      : ${col_b}${c_branch_date_map["$branch"]}${col_reset}"
                     echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
                     ;;
+                "$verbose_key") __fgb_git_worktree_jump_or_add "$(tail -1 <<< "$lines")" ;;
                 *) __fgb_git_worktree_jump_or_add "$(tail -1 <<< "$lines")" "$confirm" ;;
             esac
         }
