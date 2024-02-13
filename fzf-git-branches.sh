@@ -91,7 +91,7 @@ fgb() {
             done
 
             if [ "${#positional_args[@]}" -eq 0 ]; then
-                echo "$0: Missing argument: list of branches"
+                echo "$0: Missing argument: list of branches" >&2
                 return 1
             fi
 
@@ -194,7 +194,7 @@ fgb() {
                         list_all_branches=true
                         ;;
                     *)
-                        echo "$0: Invalid argument: $1"
+                        echo "$0: Invalid argument: $1" >&2
                         return 1
                         ;;
                 esac
@@ -307,7 +307,7 @@ fgb() {
                         return 1
                         ;;
                     *)
-                        echo "error: unknown argument: \`$1'"
+                        echo "error: unknown argument: \`$1'" >&2
                         echo "${usage_message[branch_list]}" >&2
                         return 1
                         ;;
@@ -418,7 +418,7 @@ fgb() {
                 return $?
             else
                 if ! git rev-parse --show-toplevel &>/dev/null; then
-                    echo "Not inside a Git worktree. Exit..."
+                    echo "Not inside a Git worktree. Exit..." >&2
                     return 128
                 fi
                 local branch_name; branch_name="$(tail -1 <<< "$lines")"
@@ -462,7 +462,7 @@ fgb() {
             case $subcommand in
                 list | manage)
                     if ! git rev-parse --git-dir &>/dev/null; then
-                        echo "Not inside a Git repository. Exit..."
+                        echo "Not inside a Git repository. Exit..." >&2
                         return 128
                     fi
                     c_branches="$(__fgb_git_branch_list "${branch_list_args[@]}")"
@@ -508,7 +508,7 @@ fgb() {
             done
 
             if [ "${#positional_args[@]}" -eq 0 ]; then
-                echo "$0: Missing argument: list of branches"
+                echo "$0: Missing argument: list of branches" >&2
                 return 1
             fi
 
@@ -622,7 +622,7 @@ fgb() {
             # Jump to an existing worktree or create a new one for a given branch
 
             if [ $# -eq 0 ]; then
-                echo "Missing argument: branch name"
+                echo "Missing argument: branch name" >&2
                 return 1
             fi
 
@@ -726,7 +726,7 @@ fgb() {
                         return 1
                         ;;
                     *)
-                        echo "error: unknown argument: \`$1'"
+                        echo "error: unknown argument: \`$1'" >&2
                         echo "${usage_message[worktree_list]}" >&2
                         return 1
                         ;;
@@ -735,7 +735,7 @@ fgb() {
             done
 
             if ! (git worktree list | grep -q " (bare)$") &>/dev/null; then
-                echo "Not inside a bare Git repository. Exit..."
+                echo "Not inside a bare Git repository. Exit..." >&2
                 return 128
             fi
 
@@ -872,7 +872,7 @@ fgb() {
             done
 
             if ! (git worktree list | grep -q " (bare)$") &>/dev/null; then
-                echo "Not inside a bare Git repository. Exit..."
+                echo "Not inside a bare Git repository. Exit..." >&2
                 return 128
             fi
 
@@ -989,7 +989,7 @@ fgb() {
             done
 
             if ! (git worktree list | grep -q " (bare)$") &>/dev/null; then
-                echo "Not inside a bare Git repository. Exit..."
+                echo "Not inside a bare Git repository. Exit..." >&2
                 return 128
             fi
 
@@ -1089,7 +1089,7 @@ fgb() {
             done
 
             if ! (git worktree list | grep -q " (bare)$") &>/dev/null; then
-                echo "Not inside a bare Git repository. Exit..."
+                echo "Not inside a bare Git repository. Exit..." >&2
                 return 128
             fi
 
@@ -1141,7 +1141,7 @@ fgb() {
             # Define worktree related variables
 
             if ! (git worktree list | grep -q " (bare)$") &>/dev/null; then
-                echo "Not inside a bare Git repository. Exit..."
+                echo "Not inside a bare Git repository. Exit..." >&2
                 return 128
             fi
 
