@@ -625,7 +625,8 @@ fgb() {
                 echo "Missing argument: branch name"
                 return 1
             fi
-            local branch_name="$1" remote_branch=
+
+            local branch_name="$1" confirm="${2:-false}" remote_branch=
             if [[ "$branch_name" == remotes/*/* ]]; then
                 # Remove first two segments of the reference name (remotes/<upstream>/)
                 branch_name="${branch_name#*/}"
@@ -647,32 +648,36 @@ fgb() {
                     return 1
                 fi
             else
-                if [[ -n "$remote_branch" ]]; then
-                    printf "%b\n" "$(__fgb_stdout_unindented "
-                    |Create a new worktree for '${col_b_bold}${branch_name}${col_reset}' \#
-                    |(remote branch: '${col_y_bold}${remote_branch}${col_reset}').
-                    |The path to the worktree must be absolute \#
-                    |or relative to the path to the bare repository.
-                    ")"
+                if "$confirm"; then
+                    wt_path="${c_bare_repo_path}/${branch_name}"
                 else
-                    printf "%b\n" "$(__fgb_stdout_unindented "
-                    |Create a new worktree for '${col_b_bold}${branch_name}${col_reset}'.
-                    |The path to the worktree must be absolute \#
-                    |or relative to the path to the bare repository.
-                    ")"
+                    if [[ -n "$remote_branch" ]]; then
+                        printf "%b\n" "$(__fgb_stdout_unindented "
+                        |Create a new worktree for '${col_b_bold}${branch_name}${col_reset}' \#
+                        |(remote branch: '${col_y_bold}${remote_branch}${col_reset}').
+                        |The path to the worktree must be absolute \#
+                        |or relative to the path to the bare repository.
+                        ")"
+                    else
+                        printf "%b\n" "$(__fgb_stdout_unindented "
+                        |Create a new worktree for '${col_b_bold}${branch_name}${col_reset}'.
+                        |The path to the worktree must be absolute \#
+                        |or relative to the path to the bare repository.
+                        ")"
+                    fi
+                    message="Enter the path: "
+                    wt_path=""
+                    wt_path="$branch_name"
+                    if [[ -n "${ZSH_VERSION-}" ]]; then
+                        vared -p "$message" wt_path
+                    else
+                        IFS= read -re -p "$message" -i "$wt_path" wt_path
+                    fi
+                    if [[ "$wt_path" != /* ]]; then
+                        wt_path="${c_bare_repo_path}/${wt_path}" # Relative path provided
+                    fi
+                    wt_path="$(readlink -m "$wt_path")" # Normalize the path
                 fi
-                message="Enter the path: "
-                wt_path=""
-                wt_path="$branch_name"
-                if [[ -n "${ZSH_VERSION-}" ]]; then
-                    vared -p "$message" wt_path
-                else
-                    IFS= read -re -p "$message" -i "$wt_path" wt_path
-                fi
-                if [[ "$wt_path" != /* ]]; then
-                    wt_path="${c_bare_repo_path}/${wt_path}" # Relative path provided
-                fi
-                wt_path="$(readlink -m "$wt_path")" # Normalize the path
                 if git worktree add "$wt_path" "$branch_name"; then
                     cd "$wt_path" || return 1
                     message=$(__fgb_stdout_unindented "
@@ -830,7 +835,7 @@ fgb() {
         __fgb_worktree_create() {
             # Create a new worktree for a given branch
 
-            local branch_list_args=() positional_args=()
+            local branch_list_args=() positional_args=() confirm force
 
             while [ $# -gt 0 ]; do
                 case "$1" in
@@ -844,6 +849,9 @@ fgb() {
                         ;;
                     -r | --remotes | -a | --all)
                         branch_list_args+=("$1")
+                        ;;
+                    -c | --confirm)
+                        confirm=true
                         ;;
                     -f | --force)
                         force="--force"
@@ -936,7 +944,7 @@ fgb() {
                     echo -e "date      : ${col_b}${c_branch_date_map["$branch"]}${col_reset}"
                     echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
                     ;;
-                *) __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")" ;;
+                *) __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")" "$confirm" ;;
             esac
         }
 
@@ -958,6 +966,9 @@ fgb() {
                         ;;
                     -r | --remotes | -a | --all)
                         branch_list_args+=("$1")
+                        ;;
+                    -c | --confirm)
+                        confirm=true
                         ;;
                     -f | --force)
                         force="--force"
@@ -1031,7 +1042,7 @@ fgb() {
                     echo -e "date      : ${col_b}${c_branch_date_map["$branch"]}${col_reset}"
                     echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
                     ;;
-                *) __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")" ;;
+                *) __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")" "$confirm" ;;
             esac
         }
 
@@ -1192,9 +1203,9 @@ fgb() {
                     local positional_args=()
                     while [ $# -gt 0 ]; do
                         case "$1" in
-                            --filter | --filter=* | -r | --remotes | -a | --all)
+                            --filter | --filter=* | -r | --remotes | -a | --all | -c | --confirm)
                                 echo "error: unknown option: \`$1'" >&2
-                                echo "${usage_message[worktree_list]}" >&2
+                                echo "${usage_message[worktree_$subcommand]}" >&2
                                 return 1
                                 ;;
                             *)
@@ -1442,6 +1453,9 @@ fgb() {
             |  -a, --all
             |          List all branches
             |
+            |  -c, --confirm
+            |          Automatic confirmation of the directory name for the new worktree
+            |
             |  -f, --force
             |          Suppress confirmation dialog for non-dangerous operations
             |
@@ -1468,6 +1482,9 @@ fgb() {
             |
             |  -a, --all
             |          List all branches
+            |
+            |  -c, --confirm
+            |          Automatic confirmation of the directory name for the new worktree
             |
             |  -f, --force
             |          Suppress confirmation dialog for non-dangerous operations
