@@ -618,8 +618,8 @@ fgb() {
         }
 
 
-        __fgb_git_worktree_jump_or_create() {
-            # Jump to an existing worktree or create a new one for a given branch
+        __fgb_git_worktree_jump_or_add() {
+            # Jump to an existing worktree or add a new one for a given branch
 
             if [ $# -eq 0 ]; then
                 echo "Missing argument: branch name" >&2
@@ -653,14 +653,14 @@ fgb() {
                 else
                     if [[ -n "$remote_branch" ]]; then
                         printf "%b\n" "$(__fgb_stdout_unindented "
-                        |Create a new worktree for '${col_b_bold}${branch_name}${col_reset}' \#
+                        |Add a new worktree for '${col_b_bold}${branch_name}${col_reset}' \#
                         |(remote branch: '${col_y_bold}${remote_branch}${col_reset}').
                         |The path to the worktree must be absolute \#
                         |or relative to the path to the bare repository.
                         ")"
                     else
                         printf "%b\n" "$(__fgb_stdout_unindented "
-                        |Create a new worktree for '${col_b_bold}${branch_name}${col_reset}'.
+                        |Add a new worktree for '${col_b_bold}${branch_name}${col_reset}'.
                         |The path to the worktree must be absolute \#
                         |or relative to the path to the bare repository.
                         ")"
@@ -682,7 +682,7 @@ fgb() {
                     cd "$wt_path" || return 1
                     message=$(__fgb_stdout_unindented "
                         |Worktree ${col_y_bold}${wt_path}${col_reset} \#
-                        |for branch '${col_b_bold}${branch_name}${col_reset}' created successfully.
+                        |for branch '${col_b_bold}${branch_name}${col_reset}' added successfully.
                         |${col_g_bold}Jumped${col_reset} there.
                     ")
                     echo -e "$message"
@@ -832,8 +832,8 @@ fgb() {
         }
 
 
-        __fgb_worktree_create() {
-            # Create a new worktree for a given branch
+        __fgb_worktree_add() {
+            # Add a new worktree for a given branch
 
             local branch_list_args=() positional_args=() confirm force
 
@@ -857,11 +857,11 @@ fgb() {
                         force="--force"
                         ;;
                     -h | --help)
-                        echo "${usage_message[worktree_create]}"
+                        echo "${usage_message[worktree_add]}"
                         ;;
                     --* | -*)
                         echo "error: unknown option: \`$1'" >&2
-                        echo "${usage_message[worktree_create]}" >&2
+                        echo "${usage_message[worktree_add]}" >&2
                         return 1
                         ;;
                     *)
@@ -907,7 +907,7 @@ fgb() {
             __fgb_branch_set_vars "$c_branches"
 
             local del_key="ctrl-d" info_key="ctrl-o"
-            local header="Create a Git Worktree:"
+            local header="Add a Git Worktree:"
             header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $info_key:info"
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
@@ -944,7 +944,7 @@ fgb() {
                     echo -e "date      : ${col_b}${c_branch_date_map["$branch"]}${col_reset}"
                     echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
                     ;;
-                *) __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")" "$confirm" ;;
+                *) __fgb_git_worktree_jump_or_add "$(tail -1 <<< "$lines")" "$confirm" ;;
             esac
         }
 
@@ -1042,7 +1042,7 @@ fgb() {
                     echo -e "date      : ${col_b}${c_branch_date_map["$branch"]}${col_reset}"
                     echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
                     ;;
-                *) __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")" "$confirm" ;;
+                *) __fgb_git_worktree_jump_or_add "$(tail -1 <<< "$lines")" "$confirm" ;;
             esac
         }
 
@@ -1132,7 +1132,7 @@ fgb() {
                     echo -e "date      : ${col_b}${c_branch_date_map["$branch"]}${col_reset}"
                     echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
                     ;;
-                *) __fgb_git_worktree_jump_or_create "$(tail -1 <<< "$lines")" ;;
+                *) __fgb_git_worktree_jump_or_add "$(tail -1 <<< "$lines")" ;;
             esac
         }
 
@@ -1227,9 +1227,9 @@ fgb() {
                             ;;
                     esac
                     ;;
-                create)
+                add)
                     __fgb_worktree_set_vars || return $?
-                    __fgb_worktree_create "$@"
+                    __fgb_worktree_add "$@"
                     ;;
                 total)
                     __fgb_worktree_set_vars || return $?
@@ -1375,8 +1375,10 @@ fgb() {
             |
             |  manage  Switch to existing worktrees in the baregit repository or delete them
             |
-            |  total   Create a new one, switch to existing worktrees in the bare git repository,
-            |          or delete them with corresponding branches
+            |  add     Add a new worktree based on a selected git branch
+            |
+            |  total   Add a new one, switch to an existing worktree in the bare git repository,
+            |          or delete them, optionally with corresponding branches
             |
             |Options:
             |  -h, --help
@@ -1384,30 +1386,13 @@ fgb() {
             ")"
 
             ["worktree_list"]="$(__fgb_stdout_unindented "
-            |Usage: fgb worktree list [<args>] [<query>]
+            |Usage: fgb worktree list [<args>]
             |
             |List all worktrees in a bare git repository
             |
             |Options:
             |  -s, --sort=<sort>
             |          Sort worktrees by <sort>:
-            |            -committerdate (default)
-            |
-            |  -h, --help
-            |          Show help message
-            ")"
-
-            ["worktree_create"]="$(__fgb_stdout_unindented "
-            |Usage: fgb worktree create [<args>] [<query>]
-            |
-            |Create a new worktree in the bare git repository
-            |
-            |Query:
-            |  <query>  Query to filter branches by using fzf
-            |
-            |Options:
-            |  -s, --sort=<sort>
-            |          Sort branches by <sort>:
             |            -committerdate (default)
             |
             |  -h, --help
@@ -1434,10 +1419,10 @@ fgb() {
             |          Show help message
             ")"
 
-            ["worktree_create"]="$(__fgb_stdout_unindented "
-            |Usage: fgb worktree create [<args>] [<query>]
+            ["worktree_add"]="$(__fgb_stdout_unindented "
+            |Usage: fgb worktree add [<args>] [<query>]
             |
-            |Create a new worktree based on a selected git branch
+            |Add a new worktree based on a selected git branch
             |
             |Query:
             |  <query>  Query to filter branches by using fzf
@@ -1466,8 +1451,8 @@ fgb() {
             ["worktree_total"]="$(__fgb_stdout_unindented "
             |Usage: fgb worktree total [<args>] [<query>]
             |
-            |Create a new one, switch to existing worktrees in the bare git repository, \#
-            |or delete them with corresponding branches
+            |Add a new one, switch to an existing worktree in the bare git repository, \#
+            |or delete them, optionally with corresponding branches
             |
             |Query:
             |  <query>  Query to filter branches by using fzf
@@ -1557,10 +1542,10 @@ fgb() {
         __fgb_git_branch_delete \
         __fgb_git_branch_list \
         __fgb_git_worktree_delete \
-        __fgb_git_worktree_jump_or_create \
+        __fgb_git_worktree_jump_or_add \
         __fgb_stdout_unindented \
         __fgb_worktree \
-        __fgb_worktree_create \
+        __fgb_worktree_add \
         __fgb_worktree_list \
         __fgb_worktree_manage \
         __fgb_worktree_total \
