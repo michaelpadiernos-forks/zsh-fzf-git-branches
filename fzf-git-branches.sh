@@ -420,8 +420,12 @@ fgb() {
                 "$info_key")
                     local branch; branch="$(tail -1 <<< "$lines")"
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
-                    echo -e "committer : ${col_g}${c_branch_author_map["$branch"]}${col_reset}"
-                    echo -e "date      : ${col_b}${c_branch_date_map["$branch"]}${col_reset}"
+                    echo -e "committer : ${col_g}$(
+                        git log -1 --pretty=format:"%cn" "$branch"
+                    )${col_reset}"
+                    echo -e "date      : ${col_b}$(
+                        git log -1 --format="%cd" --date=relative "$branch"
+                    )${col_reset}"
                     echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
                     ;;
                 *)
@@ -947,10 +951,14 @@ fgb() {
             case $key in
                 "$del_key") __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force" ;;
                 "$info_key")
-                    local branch; branch="$(tail -1 <<< "$lines")"
+                    branch="$(tail -1 <<< "$lines")"
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
-                    echo -e "committer : ${col_g}${c_branch_author_map["$branch"]}${col_reset}"
-                    echo -e "date      : ${col_b}${c_branch_date_map["$branch"]}${col_reset}"
+                    echo -e "committer : ${col_g}$(
+                        git log -1 --pretty=format:"%cn" "$branch"
+                    )${col_reset}"
+                    echo -e "date      : ${col_b}$(
+                        git log -1 --format="%cd" --date=relative "$branch"
+                    )${col_reset}"
                     echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
                     ;;
                 "$verbose_key") __fgb_git_worktree_jump_or_add "$(tail -1 <<< "$lines")" ;;
@@ -1045,12 +1053,16 @@ fgb() {
                 "$info_key")
                     local branch; branch="$(tail -1 <<< "$lines")"
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
-                    local wt_path; wt_path="${c_worktree_path_map["$branch"]}"
+                    local wt_path; wt_path="${c_worktree_path_map["refs/heads/${branch}"]}"
                     if [[ -n "$wt_path" ]]; then
                         echo -e "worktree  : ${col_bold}$wt_path${col_reset}"
                     fi
-                    echo -e "committer : ${col_g}${c_branch_author_map["$branch"]}${col_reset}"
-                    echo -e "date      : ${col_b}${c_branch_date_map["$branch"]}${col_reset}"
+                    echo -e "committer : ${col_g}$(
+                        git log -1 --pretty=format:"%cn" "$branch"
+                    )${col_reset}"
+                    echo -e "date      : ${col_b}$(
+                        git log -1 --format="%cd" --date=relative "$branch"
+                    )${col_reset}"
                     echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
                     ;;
                 "$verbose_key") __fgb_git_worktree_jump_or_add "$(tail -1 <<< "$lines")" ;;
@@ -1139,9 +1151,14 @@ fgb() {
                 "$info_key")
                     local branch; branch="$(tail -1 <<< "$lines")"
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
-                    echo -e "worktree  : ${col_bold}${c_worktree_path_map["$branch"]}${col_reset}"
-                    echo -e "committer : ${col_g}${c_branch_author_map["$branch"]}${col_reset}"
-                    echo -e "date      : ${col_b}${c_branch_date_map["$branch"]}${col_reset}"
+                    local wt_path; wt_path="${c_worktree_path_map["refs/heads/${branch}"]}"
+                    echo -e "worktree  : ${col_bold}$wt_path${col_reset}"
+                    echo -e "committer : ${col_g}$(
+                        git log -1 --pretty=format:"%cn" "$branch"
+                    )${col_reset}"
+                    echo -e "date      : ${col_b}$(
+                        git log -1 --format="%cd" --date=relative "$branch"
+                    )${col_reset}"
                     echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
                     ;;
                 *) __fgb_git_worktree_jump_or_add "$(tail -1 <<< "$lines")" ;;
