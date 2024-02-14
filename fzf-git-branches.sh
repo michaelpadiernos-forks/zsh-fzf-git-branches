@@ -7,7 +7,7 @@ fgb() {
 
     # Set the command to use for fzf
     local fzf_version
-    fzf_version=$(fzf --version | awk -F. '{ print $1 * 1e6 + $2 * 1e3 + $3 }')
+    fzf_version="$(fzf --version | awk -F. '{ print $1 * 1e6 + $2 * 1e3 + $3 }')"
     local fzf_min_version=16001
 
     local FZF_ARGS_GLOB="\
@@ -76,7 +76,7 @@ fgb() {
             # Delete a Git branch
 
             local force=false
-            local positional_args=()
+            local -a positional_args=()
             while [ $# -gt 0 ]; do
                 case "$1" in
                     -f | --force)
@@ -201,7 +201,7 @@ fgb() {
                 shift
             done
 
-            local ref_types=()
+            local -a ref_types=()
             if "$list_remote_branches"; then
                 ref_types=("remotes")
             else
@@ -369,6 +369,7 @@ fgb() {
         __fgb_branch_manage() {
             # Manage Git branches
 
+            local -a positional_args=()
             local force
             while [ $# -gt 0 ]; do
                 case "$1" in
@@ -409,7 +410,7 @@ fgb() {
                 return
             fi
 
-            local key; key=$(head -1 <<< "$lines")
+            local key; key="$(head -1 <<< "$lines")"
 
             # Remove brackets
             # shellcheck disable=SC2001
@@ -448,7 +449,8 @@ fgb() {
         __fgb_branch() {
             # Manage Git branches
 
-            local subcommand="$1" branch_list_args=() other_args=()
+            local subcommand="$1"
+            local -a branch_list_args=() other_args=()
             shift
 
             while [ $# -gt 0 ]; do
@@ -505,7 +507,7 @@ fgb() {
             # Delete a Git worktree for a given branch
 
             local force=false
-            local positional_args=()
+            local -a positional_args=()
             while [ $# -gt 0 ]; do
                 case "$1" in
                     -f | --force)
@@ -638,7 +640,7 @@ fgb() {
                 return 1
             fi
 
-            local branch_name="$1" confirm="${2:-false}" remote_branch=
+            local branch_name="$1" confirm="${2:-false}" remote_branch
             if [[ "$branch_name" == remotes/*/* ]]; then
                 # Remove first two segments of the reference name (remotes/<upstream>/)
                 branch_name="${branch_name#*/}"
@@ -706,7 +708,7 @@ fgb() {
         __fgb_worktree_list() {
             # List worktrees in a git repository
 
-            local branch_list_args=()
+            local -a branch_list_args=()
 
             while [ $# -gt 0 ]; do
                 case "$1" in
@@ -847,7 +849,8 @@ fgb() {
         __fgb_worktree_add() {
             # Add a new worktree for a given branch
 
-            local branch_list_args=() positional_args=() confirm force
+            local -a branch_list_args=() positional_args=()
+            local confirm force
 
             while [ $# -gt 0 ]; do
                 case "$1" in
@@ -942,7 +945,7 @@ fgb() {
                 return
             fi
 
-            local key; key=$(head -1 <<< "$lines")
+            local key; key="$(head -1 <<< "$lines")"
 
             # Remove brackets
             # shellcheck disable=SC2001
@@ -970,7 +973,7 @@ fgb() {
         __fgb_worktree_total() {
             # Manage Git worktrees
 
-            local branch_list_args=() positional_args=()
+            local -a branch_list_args=() positional_args=()
 
             while [ $# -gt 0 ]; do
                 case "$1" in
@@ -1042,7 +1045,7 @@ fgb() {
                 return
             fi
 
-            local key; key=$(head -1 <<< "$lines")
+            local key; key="$(head -1 <<< "$lines")"
 
             # Remove brackets
             # shellcheck disable=SC2001
@@ -1074,7 +1077,8 @@ fgb() {
         __fgb_worktree_manage() {
             # Manage Git worktrees
 
-            local branch_list_args=() positional_args=() force
+            local -a branch_list_args=() positional_args=()
+            local force
 
             while [ $# -gt 0 ]; do
                 case "$1" in
@@ -1140,7 +1144,7 @@ fgb() {
                 return
             fi
 
-            local key; key=$(head -1 <<< "$lines")
+            local key; key="$(head -1 <<< "$lines")"
 
             # Remove brackets
             # shellcheck disable=SC2001
@@ -1229,7 +1233,7 @@ fgb() {
                 list | manage)
                     __fgb_worktree_set_vars || return $?
 
-                    local positional_args=()
+                    local -a positional_args=()
                     while [ $# -gt 0 ]; do
                         case "$1" in
                             --filter | --filter=* | -r | --remotes | -a | --all | -c | --confirm)
@@ -1513,7 +1517,7 @@ fgb() {
         shift
         local fgb_subcommand="${1:-}"
 
-        local WIDTH_OF_WINDOW; WIDTH_OF_WINDOW=$(tput cols)
+        local WIDTH_OF_WINDOW; WIDTH_OF_WINDOW="$(tput cols)"
 
         case "$fgb_command" in
             branch)
