@@ -75,12 +75,15 @@ fgb() {
         __fgb_git_branch_delete() {
             # Delete a Git branch
 
-            local force=false
+            local force=false extend=false
             local -a positional_args=()
             while [ $# -gt 0 ]; do
                 case "$1" in
                     -f | --force)
                         force=true
+                        ;;
+                    -e | --extend)
+                        extend=true
                         ;;
                     "") ;; # Skip empty arguments
                     *)
@@ -107,13 +110,49 @@ fgb() {
                     array_of_lines+=( "$line" )
                 done <<< "$branches_to_delete"
             fi
+            local remote_tracking local_tracking local_branches branch upstream output
             for branch_name in "${array_of_lines[@]}"; do
+                remote_tracking=""
+                local_tracking=""
+                local_branches=""
+                branch=""
+                upstream=""
+                output=""
                 is_remote=false
 
+                # TODO: Store branches with full path to avoid ambiguous branch names, e.g.:
+                # a local branch with the full name like 'refs/heads/remotes/some_name'
                 if [[ "$branch_name" == remotes/*/* ]]; then
                     is_remote=true
                     remote_name="${branch_name#*/}"
                     remote_name="${remote_name%%/*}"
+                fi
+
+                if "$extend"; then
+                    if [[ "$branch_name" == remotes/*/* ]]; then
+                        if ! local_branches="$(__fgb_git_branch_list)"; then
+                            echo -e "$local_branches" >&2
+                            return 1
+                        fi
+                        remote_tracking="$branch_name"
+                        while IFS= read -r branch; do
+                            upstream="$(
+                                git \
+                                    for-each-ref \
+                                    --format \
+                                    '%(upstream)' "$branch"
+                            )"
+                            if [[ "refs/${remote_tracking}" == "$upstream" ]]; then
+                                local_tracking="$branch"
+                                break
+                            fi
+                        done <<< "$(cut -d: -f1 <<< "$local_branches")"
+                    else
+                        local_tracking="$branch_name"
+                        remote_tracking="$(
+                            git  for-each-ref --format '%(upstream)' "refs/heads/$branch_name"
+                        )"
+                    fi
                 fi
 
                 if "$is_remote"; then
@@ -126,6 +165,16 @@ fgb() {
                     # NOTE: Avoid --force here as it's no undoable operation for remote branches
                     if __fgb_confirmation_dialog "$user_prompt"; then
                         git push --delete "$remote_name" "$branch_name" || return $?
+                        if "$extend"; then
+                            if [[ -n "$local_tracking" ]]; then
+                                branch="${local_tracking#refs/heads/}"
+                                if "$force"; then
+                                    __fgb_git_branch_delete "$branch" --force
+                                else
+                                    __fgb_git_branch_delete "$branch"
+                                fi
+                            fi
+                        fi
                     fi
                 else
                     user_prompt=$(__fgb_stdout_unindented "
@@ -133,7 +182,6 @@ fgb() {
                         |local branch: \`${col_b_bold}${branch_name}${col_reset}'?
                     ")
                     if "$force" || __fgb_confirmation_dialog "$user_prompt"; then
-                        local output
                         if ! output="$(git branch -d "$branch_name" 2>&1)"; then
                             local head_branch; head_branch="$(git rev-parse --abbrev-ref HEAD)"
                             if ! grep -q "^error: .* is not fully merged\.$" <<< "$output"; then
@@ -141,12 +189,12 @@ fgb() {
                                 continue
                             fi
                             user_prompt=$(__fgb_stdout_unindented "
-
+                                |
                                 |${col_r_bold}WARNING:${col_reset} \#
                                 |The branch '${col_b_bold}${branch_name}${col_reset}' \#
                                 |is not yet merged into the \#
                                 |'${col_g_bold}${head_branch}${col_reset}' branch.
-
+                                |
                                 |Are you sure you want to delete it?
                             ")
                             # NOTE: Avoid --force here
@@ -156,6 +204,16 @@ fgb() {
                             fi
                         else
                             echo "$output"
+                            if "$extend"; then
+                                if [[ -n "$remote_tracking" ]]; then
+                                    branch="${remote_tracking#refs/}"
+                                    if "$force"; then
+                                        __fgb_git_branch_delete "$branch" --force
+                                    else
+                                        __fgb_git_branch_delete "$branch"
+                                    fi
+                                fi
+                            fi
                         fi
                     fi
                 fi
@@ -391,12 +449,13 @@ fgb() {
                 shift
             done
 
-            local del_key="ctrl-d" info_key="ctrl-o"
+            local del_key="ctrl-d" extend_del_key="ctrl-alt-d" info_key="ctrl-o"
             local header="Manage Git Branches:"
-            header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $info_key:info"
+            header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $extend_del_key:extended-delete"
+            header+=", $info_key:info"
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
-                    --expect='"$del_key,$info_key"' \
+                    --expect='"$del_key,$extend_del_key,$info_key"' \
                     --header '$header' \
                 "
 
@@ -418,6 +477,9 @@ fgb() {
 
             case $key in
                 "$del_key") __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force" ;;
+                "$extend_del_key")
+                    __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force" --extend
+                    ;;
                 "$info_key")
                     local branch; branch="$(tail -1 <<< "$lines")"
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
@@ -506,12 +568,15 @@ fgb() {
         __fgb_git_worktree_delete() {
             # Delete a Git worktree for a given branch
 
-            local force=false
+            local force=false extend=false
             local -a positional_args=()
             while [ $# -gt 0 ]; do
                 case "$1" in
                     -f | --force)
                         force=true
+                        ;;
+                    -e | --extend)
+                        extend=true
                         ;;
                     "") ;; # Skip empty arguments
                     *)
@@ -545,6 +610,7 @@ fgb() {
                     array_of_lines+=( "$line" )
                 done <<< "$worktrees_to_delete"
             fi
+            local -a branch_delete_args=()
             for branch_name in "${array_of_lines[@]}"; do
                 if [[ "$branch_name" == remotes/*/* ]]; then
                     # Remove first two segments of the reference name (remotes/<upstream>/)
@@ -599,7 +665,11 @@ fgb() {
                                 |'${col_b_bold}${branch_name}${col_reset}' branch as well?
                                 ")
                                 if __fgb_confirmation_dialog "$user_prompt"; then
-                                    __fgb_git_branch_delete "$branch_name" --force
+                                    branch_delete_args+=("--force")
+                                    "$extend" && branch_delete_args+=("--extend")
+                                    __fgb_git_branch_delete \
+                                        "$branch_name" \
+                                        "${branch_delete_args[@]}"
                                 fi
                             else
                                 if "$is_in_target_wt"; then
@@ -615,7 +685,9 @@ fgb() {
                                 |'${col_b_bold}${branch_name}${col_reset}' branch as well?
                             ")
                             if __fgb_confirmation_dialog "$user_prompt"; then
-                                __fgb_git_branch_delete "$branch_name" --force
+                                branch_delete_args+=("--force")
+                                "$extend" && branch_delete_args+=("--extend")
+                                __fgb_git_branch_delete "$branch_name" "${branch_delete_args[@]}"
                             fi
                         fi
                     else
@@ -625,8 +697,9 @@ fgb() {
                     fi
                 else
                     # Process a branch that doesn't have a corresponding worktree
-                    "$force" && force="--force" || force=""
-                    __fgb_git_branch_delete "$branch_name" "$force"
+                    "$force" && branch_delete_args+=("--force")
+                    "$extend" && branch_delete_args+=("--extend")
+                    __fgb_git_branch_delete "$branch_name" "${branch_delete_args[@]}"
                 fi
             done
         }
@@ -921,13 +994,17 @@ fgb() {
 
             __fgb_branch_set_vars "$c_branches"
 
-            local del_key="ctrl-d" info_key="ctrl-o" verbose_key="ctrl-v"
+            local \
+                del_key="ctrl-d" \
+                extend_del_key="ctrl-alt-d" \
+                info_key="ctrl-o" \
+                verbose_key="ctrl-v"
             local header="Add a Git Worktree:"
-            header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $info_key:info"
-            header+=" $verbose_key:verbose"
+            header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $extend_del_key:extended-delete"
+            header+=", $info_key:info, $verbose_key:verbose"
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
-                    --expect='"$del_key,$info_key,$verbose_key"' \
+                    --expect='"$del_key,$extend_del_key,$info_key,$verbose_key"' \
                     --header '$header' \
                 "
 
@@ -953,6 +1030,9 @@ fgb() {
 
             case $key in
                 "$del_key") __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force" ;;
+                "$extend_del_key")
+                    __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force" --extend
+                    ;;
                 "$info_key")
                     branch="$(tail -1 <<< "$lines")"
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
@@ -1021,13 +1101,17 @@ fgb() {
 
             __fgb_branch_set_vars "$c_branches"
 
-            local del_key="ctrl-d" info_key="ctrl-o" verbose_key="ctrl-v"
+            local \
+                del_key="ctrl-d" \
+                extend_del_key="ctrl-alt-d" \
+                info_key="ctrl-o" \
+                verbose_key="ctrl-v"
             local header="Manage Git Worktrees (total):"
-            header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $info_key:info"
-            header+=" $verbose_key:verbose"
+            header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $extend_del_key:extended-delete"
+            header+=", $info_key:info, $verbose_key:verbose"
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
-                    --expect='"$del_key,$info_key,$verbose_key"' \
+                    --expect='"$del_key,$extend_del_key,$info_key,$verbose_key"' \
                     --header '$header' \
                 "
 
@@ -1053,6 +1137,9 @@ fgb() {
 
             case $key in
                 "$del_key") __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force" ;;
+                "$extend_del_key")
+                    __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force" --extend
+                    ;;
                 "$info_key")
                     local branch; branch="$(tail -1 <<< "$lines")"
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
@@ -1121,12 +1208,13 @@ fgb() {
                 return 128
             fi
 
-            local del_key="ctrl-d" info_key="ctrl-o"
+            local del_key="ctrl-d" extend_del_key="ctrl-alt-d" info_key="ctrl-o"
             local header="Manage Git Worktrees:"
-            header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $info_key:info"
+            header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $extend_del_key:extended-delete"
+            header+=", $info_key:info"
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
-                    --expect='"$del_key,$info_key"' \
+                    --expect='"$del_key,$extend_del_key,$info_key"' \
                     --header '$header' \
                 "
 
@@ -1152,6 +1240,9 @@ fgb() {
 
             case $key in
                 "$del_key") __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force" ;;
+                "$extend_del_key")
+                    __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force" --extend
+                    ;;
                 "$info_key")
                     local branch; branch="$(tail -1 <<< "$lines")"
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
