@@ -3,7 +3,7 @@
 command -v fzf >/dev/null 2>&1 || return
 
 fgb() {
-    local VERSION="0.5.0"
+    local VERSION="0.5.1"
 
     # Set the command to use for fzf
     local fzf_version
@@ -1190,7 +1190,7 @@ fgb() {
                 rev <<< "$wt_list" | cut -d' ' -f1 | rev | sed 's|^.\(.*\).$|\1|;s|^|refs/heads/|'
             )"
 
-            __fgb_branch_set_vars "$c_worktree_branches"
+            __fgb_branch_set_vars "$(__fgb_git_branch_list --filter "$c_worktree_branches")"
 
             local \
                 branch \
