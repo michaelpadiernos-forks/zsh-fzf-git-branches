@@ -98,9 +98,19 @@ fgb() {
                 return 1
             fi
 
-            local branch_name is_remote remote_name user_prompt
-            local branches_to_delete="${positional_args[*]}"
-            local -a array_of_lines
+            local \
+                branch \
+                branch_name \
+                branches_to_delete="${positional_args[*]}" \
+                is_remote \
+                local_branches \
+                local_tracking \
+                output \
+                remote_name \
+                remote_tracking \
+                upstream \
+                user_prompt
+            local -a array_of_lines=() branch_delete_args=()
             if [[ -n "${ZSH_VERSION-}" ]]; then
                 # shellcheck disable=SC2116,SC2296
                 array_of_lines=("${(f@)$(echo "$branches_to_delete")}")
@@ -110,31 +120,40 @@ fgb() {
                     array_of_lines+=( "$line" )
                 done <<< "$branches_to_delete"
             fi
-            local remote_tracking local_tracking local_branches branch upstream output
             for branch_name in "${array_of_lines[@]}"; do
-                remote_tracking=""
-                local_tracking=""
-                local_branches=""
                 branch=""
-                upstream=""
-                output=""
                 is_remote=false
+                local_branches=""
+                local_tracking=""
+                output=""
+                remote_name=""
+                remote_tracking=""
+                upstream=""
 
-                # TODO: Store branches with full path to avoid ambiguous branch names, e.g.:
-                # a local branch with the full name like 'refs/heads/remotes/some_name'
-                if [[ "$branch_name" == remotes/*/* ]]; then
+                # shellcheck disable=SC2053
+                if [[ "$branch_name" == "$c_bracket_rem_open"*/*"$c_bracket_rem_close" ]]; then
                     is_remote=true
-                    remote_name="${branch_name#*/}"
-                    remote_name="${remote_name%%/*}"
+                    # Remove the first and the last characters (brackets)
+                    branch_name="${branch_name:1}"; branch_name="${branch_name%?}"
+                    # Remove everything after the first slash
+                    remote_name="${branch_name%%/*}"
+                    # Remove the first segment of the reference name (<upstream>/)
+                    branch_name="${branch_name#*/}"
+                elif [[ "$branch_name" == "$c_bracket_loc_open"*"$c_bracket_loc_close" ]]; then
+                    # Remove the first and the last characters (brackets)
+                    branch_name="${branch_name:1}"; branch_name="${branch_name%?}"
+                else
+                    echo "error: invalid branch name pattern: $branch_name" >&2
+                    return 1
                 fi
 
                 if "$extend"; then
-                    if [[ "$branch_name" == remotes/*/* ]]; then
+                    if "$is_remote"; then
                         if ! local_branches="$(__fgb_git_branch_list)"; then
                             echo -e "$local_branches" >&2
                             return 1
                         fi
-                        remote_tracking="$branch_name"
+                        remote_tracking="refs/remotes/${branch_name}"
                         while IFS= read -r branch; do
                             upstream="$(
                                 git \
@@ -142,7 +161,7 @@ fgb() {
                                     --format \
                                     '%(upstream)' "$branch"
                             )"
-                            if [[ "refs/${remote_tracking}" == "$upstream" ]]; then
+                            if [[ "$remote_tracking" == "$upstream" ]]; then
                                 local_tracking="$branch"
                                 break
                             fi
@@ -167,12 +186,11 @@ fgb() {
                         git push --delete "$remote_name" "$branch_name" || return $?
                         if "$extend"; then
                             if [[ -n "$local_tracking" ]]; then
-                                branch="${local_tracking#refs/heads/}"
-                                if "$force"; then
-                                    __fgb_git_branch_delete "$branch" --force
-                                else
-                                    __fgb_git_branch_delete "$branch"
-                                fi
+                                "$force" && branch_delete_args+=("--force")
+                                branch="$c_bracket_loc_open"
+                                branch+="${local_tracking#refs/heads/}"
+                                branch+="$c_bracket_loc_close"
+                                __fgb_git_branch_delete "$branch" "${branch_delete_args[@]}"
                             fi
                         fi
                     fi
@@ -206,12 +224,11 @@ fgb() {
                             echo "$output"
                             if "$extend"; then
                                 if [[ -n "$remote_tracking" ]]; then
-                                    branch="${remote_tracking#refs/}"
-                                    if "$force"; then
-                                        __fgb_git_branch_delete "$branch" --force
-                                    else
-                                        __fgb_git_branch_delete "$branch"
-                                    fi
+                                    "$force" && branch_delete_args+=("--force")
+                                    branch="$c_bracket_rem_open"
+                                    branch+="${remote_tracking#refs/remotes/}"
+                                    branch+="$c_bracket_rem_close"
+                                    __fgb_git_branch_delete "$branch" "${branch_delete_args[@]}"
                                 fi
                             fi
                         fi
@@ -296,7 +313,7 @@ fgb() {
             # Define branch related variables
 
             if [ $# -ne 1 ]; then
-                echo "error: missing argument: branch list"
+                echo "error: missing argument: branch list" >&2
                 return 41
             fi
 
@@ -397,20 +414,25 @@ fgb() {
                 spacer=$(( spacer < 4 ? spacer : 4 ))
             fi
 
-            local branch branch_name author_name author_date
+            local branch branch_name author_name author_date bracket_open bracket_close
             while IFS= read -r branch; do
                 branch="${branch%%:*}"
                 branch_name="$branch"
                 if [[ "$branch" == refs/heads/* ]]; then
-                    # Remove first two segments of the reference name for local branches
-                    branch_name="${branch_name#*/}"
-                    branch_name="${branch_name#*/}"
+                    # Remove first two segments of the reference name
+                    branch_name="${branch_name#*/}"; branch_name="${branch_name#*/}"
+                    # Define the bracket characters
+                    bracket_open="$c_bracket_loc_open" bracket_close="$c_bracket_loc_close"
                 elif [[ "$branch" == refs/remotes/* ]]; then
-                    # Remove the first segment of the reference name for remote branches
-                    branch_name="${branch_name#*/}"
+                    # Remove first two segments of the reference name
+                    branch_name="${branch_name#*/}"; branch_name="${branch_name#*/}"
+                    # Define the bracket characters
+                    bracket_open="$c_bracket_rem_open" bracket_close="$c_bracket_rem_close"
                 fi
                 # Adjust the branch name column width based on the number of color code characters
-                printf "%-$(( c_branch_width + 13 ))b" "[${col_y_bold}${branch_name}${col_reset}]"
+                printf \
+                    "%-$(( c_branch_width + 13 ))b" \
+                    "${bracket_open}${col_y_bold}${branch_name}${col_reset}${bracket_close}"
                 if "$c_show_author"; then
                     author_name="${c_branch_author_map["$branch"]}"
                     printf \
@@ -471,17 +493,25 @@ fgb() {
 
             local key; key="$(head -1 <<< "$lines")"
 
-            # Remove brackets
-            # shellcheck disable=SC2001
-            lines="$(sed 's/^.\(.*\).$/\1/' <<< "$lines")"
+            local \
+                is_remote=false
 
+            local branch; branch="$(tail -1 <<< "$lines")"
+            # shellcheck disable=SC2053
+            if [[ "$branch" == "$c_bracket_rem_open"*/*"$c_bracket_rem_close" ]]; then
+                is_remote=true
+            elif [[ "$branch" != "$c_bracket_loc_open"*"$c_bracket_loc_close" ]]; then
+                echo "error: invalid branch name pattern: $branch_name" >&2
+                return 1
+            fi
+            # Remove the first and the last characters (brackets)
+            branch="${branch:1}"; branch="${branch%?}"
             case $key in
                 "$del_key") __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force" ;;
                 "$extend_del_key")
                     __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force" --extend
                     ;;
                 "$info_key")
-                    local branch; branch="$(tail -1 <<< "$lines")"
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
                     echo -e "committer : ${col_g}$(
                         git log -1 --pretty=format:"%cn" "$branch"
@@ -496,13 +526,12 @@ fgb() {
                         echo "Not inside a Git worktree. Exit..." >&2
                         return 128
                     fi
-                    local branch_name; branch_name="$(tail -1 <<< "$lines")"
-                    if [[ "$branch_name" == remotes/*/* ]]; then
-                        # Remove first two segments of the reference name (remotes/<upstream>/)
-                        branch_name="${branch_name#*/}"
-                        branch_name="${branch_name#*/}"
+
+                    if "$is_remote"; then
+                        # Remove the first segment of the reference name (<upstream>/)
+                        branch="${branch#*/}"
                     fi
-                    git switch "$branch_name"
+                    git switch "$branch"
                     ;;
             esac
         }
@@ -595,6 +624,7 @@ fgb() {
                 branch_name \
                 error_pattern \
                 is_in_target_wt=false \
+                is_remote \
                 output \
                 success_message \
                 user_prompt \
@@ -612,12 +642,20 @@ fgb() {
             fi
             local -a branch_delete_args=()
             for branch_name in "${array_of_lines[@]}"; do
-                if [[ "$branch_name" == remotes/*/* ]]; then
-                    # Remove first two segments of the reference name (remotes/<upstream>/)
-                    branch_name="${branch_name#*/}"
-                    branch_name="${branch_name#*/}"
+                is_remote=false
+                wt_path=""
+                # shellcheck disable=SC2053
+                if [[ "$branch_name" == "$c_bracket_rem_open"*/*"$c_bracket_rem_close" ]]; then
+                    is_remote=true
+                elif [[ "$branch_name" != "$c_bracket_loc_open"*"$c_bracket_loc_close" ]]; then
+                    echo "error: invalid branch name pattern: $branch_name" >&2
+                    return 1
                 fi
-                wt_path="${c_worktree_path_map["refs/heads/${branch_name}"]}"
+                # Remove the first and the last characters (brackets)
+                branch_name="${branch_name:1}"; branch_name="${branch_name%?}"
+                if ! "$is_remote"; then
+                    wt_path="${c_worktree_path_map["refs/heads/${branch_name}"]}"
+                fi
                 if [[ -n "$wt_path" ]]; then
                     # Process a branch with a corresponding worktree
                     is_in_target_wt=false
@@ -667,6 +705,8 @@ fgb() {
                                 if __fgb_confirmation_dialog "$user_prompt"; then
                                     branch_delete_args+=("--force")
                                     "$extend" && branch_delete_args+=("--extend")
+                                    branch_name="${c_bracket_loc_open}${branch_name}"
+                                    branch_name+="$c_bracket_loc_close"
                                     __fgb_git_branch_delete \
                                         "$branch_name" \
                                         "${branch_delete_args[@]}"
@@ -687,6 +727,8 @@ fgb() {
                             if __fgb_confirmation_dialog "$user_prompt"; then
                                 branch_delete_args+=("--force")
                                 "$extend" && branch_delete_args+=("--extend")
+                                branch_name="${c_bracket_loc_open}${branch_name}"
+                                branch_name+="$c_bracket_loc_close"
                                 __fgb_git_branch_delete "$branch_name" "${branch_delete_args[@]}"
                             fi
                         fi
@@ -699,6 +741,13 @@ fgb() {
                     # Process a branch that doesn't have a corresponding worktree
                     "$force" && branch_delete_args+=("--force")
                     "$extend" && branch_delete_args+=("--extend")
+                    if "$is_remote"; then
+                        branch_name="${c_bracket_rem_open}${branch_name}"
+                        branch_name+="$c_bracket_rem_close"
+                    else
+                        branch_name="${c_bracket_loc_open}${branch_name}"
+                        branch_name+="$c_bracket_loc_close"
+                    fi
                     __fgb_git_branch_delete "$branch_name" "${branch_delete_args[@]}"
                 fi
             done
@@ -713,12 +762,22 @@ fgb() {
                 return 1
             fi
 
-            local branch_name="$1" confirm="${2:-false}" remote_branch
-            if [[ "$branch_name" == remotes/*/* ]]; then
-                # Remove first two segments of the reference name (remotes/<upstream>/)
-                branch_name="${branch_name#*/}"
-                remote_branch="$branch_name"
-                branch_name="${branch_name#*/}"
+            local \
+                branch_name="$1" \
+                confirm="${2:-false}" \
+                remote_branch
+            # shellcheck disable=SC2053
+            if [[ "$branch_name" == "$c_bracket_rem_open"*/*"$c_bracket_rem_close" ]]; then
+                # Remove the first and the last characters (brackets)
+                remote_branch="${branch_name:1}"; remote_branch="${remote_branch%?}"
+                # Remove the first segment of the reference name (<upstream>/)
+                branch_name="${remote_branch#*/}"
+            elif [[ "$branch_name" == "$c_bracket_loc_open"*"$c_bracket_loc_close" ]]; then
+                # Remove the first and the last characters (brackets)
+                branch_name="${branch_name:1}"; branch_name="${branch_name%?}"
+            else
+                echo "error: invalid branch name pattern: $branch_name" >&2
+                return 1
             fi
             local wt_path
             wt_path="$(git worktree list | grep " \[${branch_name}\]$" | cut -d' ' -f1)"
@@ -869,20 +928,25 @@ fgb() {
                 spacer=$(( spacer < 4 ? spacer : 4 ))
             fi
 
-            local branch wt_path author_name author_date
+            local branch wt_path author_name author_date bracket_open bracket_close
             while IFS= read -r branch; do
                 branch="${branch%%:*}"
                 branch_name="$branch"
                 if [[ "$branch" == refs/heads/* ]]; then
-                    # Remove first two segments of the reference name for local branches
-                    branch_name="${branch_name#*/}"
-                    branch_name="${branch_name#*/}"
+                    # Remove first two segments of the reference name
+                    branch_name="${branch_name#*/}"; branch_name="${branch_name#*/}"
+                    # Define the bracket characters
+                    bracket_open="$c_bracket_loc_open" bracket_close="$c_bracket_loc_close"
                 elif [[ "$branch" == refs/remotes/* ]]; then
-                    # Remove the first segment of the reference name for remote branches
-                    branch_name="${branch_name#*/}"
+                    # Remove first two segments of the reference name
+                    branch_name="${branch_name#*/}"; branch_name="${branch_name#*/}"
+                    # Define the bracket characters
+                    bracket_open="$c_bracket_rem_open" bracket_close="$c_bracket_rem_close"
                 fi
                 # Adjust the branch name column width based on the number of color code characters
-                printf "%-$(( c_branch_width + 13 ))b" "[${col_y_bold}${branch_name}${col_reset}]"
+                printf \
+                    "%-$(( c_branch_width + 13 ))b" \
+                    "${bracket_open}${col_y_bold}${branch_name}${col_reset}${bracket_close}"
                 if "$c_show_wt_path"; then
                     if [[ -n "${c_worktree_path_map["$branch"]}" ]]; then
                         wt_path="${c_worktree_path_map["$branch"]}"
@@ -1024,17 +1088,15 @@ fgb() {
 
             local key; key="$(head -1 <<< "$lines")"
 
-            # Remove brackets
-            # shellcheck disable=SC2001
-            lines="$(sed 's/^.\(.*\).$/\1/' <<< "$lines")"
-
+            local branch; branch="$(tail -1 <<< "$lines")"
             case $key in
                 "$del_key") __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force" ;;
                 "$extend_del_key")
                     __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force" --extend
                     ;;
                 "$info_key")
-                    branch="$(tail -1 <<< "$lines")"
+                    # Remove the first and the last characters (brackets)
+                    branch="${branch:1}"; branch="${branch%?}"
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
                     echo -e "committer : ${col_g}$(
                         git log -1 --pretty=format:"%cn" "$branch"
@@ -1044,8 +1106,8 @@ fgb() {
                     )${col_reset}"
                     echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
                     ;;
-                "$verbose_key") __fgb_git_worktree_jump_or_add "$(tail -1 <<< "$lines")" ;;
-                *) __fgb_git_worktree_jump_or_add "$(tail -1 <<< "$lines")" "$confirm" ;;
+                "$verbose_key") __fgb_git_worktree_jump_or_add "$branch" ;;
+                *) __fgb_git_worktree_jump_or_add "$branch" "$confirm" ;;
             esac
         }
 
@@ -1131,17 +1193,15 @@ fgb() {
 
             local key; key="$(head -1 <<< "$lines")"
 
-            # Remove brackets
-            # shellcheck disable=SC2001
-            lines="$(sed 's/^.\(.*\).$/\1/' <<< "$lines")"
-
+            local branch; branch="$(tail -1 <<< "$lines")"
             case $key in
                 "$del_key") __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force" ;;
                 "$extend_del_key")
                     __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force" --extend
                     ;;
                 "$info_key")
-                    local branch; branch="$(tail -1 <<< "$lines")"
+                    # Remove the first and the last characters (brackets)
+                    branch="${branch:1}"; branch="${branch%?}"
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
                     local wt_path; wt_path="${c_worktree_path_map["refs/heads/${branch}"]}"
                     if [[ -n "$wt_path" ]]; then
@@ -1155,8 +1215,8 @@ fgb() {
                     )${col_reset}"
                     echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
                     ;;
-                "$verbose_key") __fgb_git_worktree_jump_or_add "$(tail -1 <<< "$lines")" ;;
-                *) __fgb_git_worktree_jump_or_add "$(tail -1 <<< "$lines")" "$confirm" ;;
+                "$verbose_key") __fgb_git_worktree_jump_or_add "$branch" ;;
+                *) __fgb_git_worktree_jump_or_add "$branch" "$confirm" ;;
             esac
         }
 
@@ -1234,17 +1294,15 @@ fgb() {
 
             local key; key="$(head -1 <<< "$lines")"
 
-            # Remove brackets
-            # shellcheck disable=SC2001
-            lines="$(sed 's/^.\(.*\).$/\1/' <<< "$lines")"
-
+            local branch; branch="$(tail -1 <<< "$lines")"
             case $key in
                 "$del_key") __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force" ;;
                 "$extend_del_key")
                     __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force" --extend
                     ;;
                 "$info_key")
-                    local branch; branch="$(tail -1 <<< "$lines")"
+                    # Remove the first and the last characters (brackets)
+                    branch="${branch:1}"; branch="${branch%?}"
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
                     local wt_path; wt_path="${c_worktree_path_map["refs/heads/${branch}"]}"
                     echo -e "worktree  : ${col_bold}$wt_path${col_reset}"
@@ -1256,7 +1314,7 @@ fgb() {
                     )${col_reset}"
                     echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
                     ;;
-                *) __fgb_git_worktree_jump_or_add "$(tail -1 <<< "$lines")" ;;
+                *) __fgb_git_worktree_jump_or_add "$branch" ;;
             esac
         }
 
@@ -1397,6 +1455,10 @@ fgb() {
             c_show_date=true \
             c_show_wt_flag=false \
             c_show_wt_path=true \
+            c_bracket_loc_open="[" \
+            c_bracket_loc_close="]" \
+            c_bracket_rem_open="(" \
+            c_bracket_rem_close=")" \
             c_date_width=17 # Example: (99 minutes ago)
 
         local -A \
