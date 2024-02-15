@@ -329,14 +329,9 @@ fgb() {
                 # Remove the longest suffix starting with ':'
                 branch="${line%%:*}"
                 branch_name="$branch"
-                if [[ "$branch" == refs/heads/* ]]; then
-                    # Remove first two segments of the reference name for local branches
-                    branch_name="${branch_name#*/}"
-                    branch_name="${branch_name#*/}"
-                elif [[ "$branch" == refs/remotes/* ]]; then
-                    # Remove the first segment of the reference name for remote branches
-                    branch_name="${branch_name#*/}"
-                fi
+                # Remove first two segments of the reference name
+                branch_name="${branch_name#*/}"
+                branch_name="${branch_name#*/}"
                 # Remove the shortest prefix starting with ':'
                 author_name="${line#*:}"
                 # Remove the shortest suffix ending with ':'
