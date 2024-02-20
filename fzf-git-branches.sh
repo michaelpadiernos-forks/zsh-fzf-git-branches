@@ -13,8 +13,10 @@ fgb() {
     local FZF_ARGS_GLOB="\
             --ansi \
             --bind=ctrl-y:accept,ctrl-t:toggle+down \
+            --border=top \
             --cycle \
             --multi \
+            --no-sort \
             --pointer='' \
             --preview 'git log --oneline --decorate --graph --color=always {1}' \
         "
@@ -385,7 +387,7 @@ fgb() {
             done
 
             local total_width
-            total_width="$(( c_branch_width + c_author_width + c_date_width + 3 ))"
+            total_width="$(( c_branch_width + c_author_width + c_date_width + 5 ))"
 
             if [ "$total_width" -gt "$WIDTH_OF_WINDOW" ]; then
                 c_show_author=false
