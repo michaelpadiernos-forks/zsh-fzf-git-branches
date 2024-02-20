@@ -437,8 +437,9 @@ fgb() {
                 fi
                 if "$c_show_date"; then
                     author_date="${c_branch_date_map["$branch"]}"
-                    printf "%${spacer}s(${col_b}%s${col_reset})\n" " " "$author_date"
+                    printf "%${spacer}s(${col_b}%s${col_reset})" " " "$author_date"
                 fi
+                echo
             done <<< "$c_branches"
         }
 
@@ -974,8 +975,9 @@ fgb() {
                 fi
                 if "$c_show_date"; then
                     author_date="${c_branch_date_map["$branch"]}"
-                    printf "%${spacer}s(${col_b}%s${col_reset})\n" " " "$author_date"
+                    printf "%${spacer}s(${col_b}%s${col_reset})" " " "$author_date"
                 fi
+                echo
             done <<< "$sorted_branches_list"
         }
 
