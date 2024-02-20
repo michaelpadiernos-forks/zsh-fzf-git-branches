@@ -471,8 +471,8 @@ fgb() {
 
             local del_key="ctrl-d" extend_del_key="ctrl-alt-d" info_key="ctrl-o"
             local header="Manage Git Branches:"
-            header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $extend_del_key:extended-delete"
-            header+=", $info_key:info"
+            header+=" ctrl-y:jump, ctrl-t:toggle, ${del_key}:delete"
+            header+=", ${extend_del_key}:extended-delete, ${info_key}:info"
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
                     --expect='"$del_key,$extend_del_key,$info_key"' \
@@ -1063,8 +1063,8 @@ fgb() {
                 info_key="ctrl-o" \
                 verbose_key="ctrl-v"
             local header="Add a Git Worktree:"
-            header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $extend_del_key:extended-delete"
-            header+=", $info_key:info, $verbose_key:verbose"
+            header+=" ctrl-y:jump, ctrl-t:toggle, ${del_key}:delete"
+            header+=", ${extend_del_key}:extended-delete, ${info_key}:info, ${verbose_key}:verbose"
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
                     --expect='"$del_key,$extend_del_key,$info_key,$verbose_key"' \
@@ -1168,8 +1168,8 @@ fgb() {
                 info_key="ctrl-o" \
                 verbose_key="ctrl-v"
             local header="Manage Git Worktrees (total):"
-            header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $extend_del_key:extended-delete"
-            header+=", $info_key:info, $verbose_key:verbose"
+            header+=" ctrl-y:jump, ctrl-t:toggle, ${del_key}:delete"
+            header+=", ${extend_del_key}:extended-delete, ${info_key}:info, ${verbose_key}:verbose"
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
                     --expect='"$del_key,$extend_del_key,$info_key,$verbose_key"' \
@@ -1269,8 +1269,8 @@ fgb() {
 
             local del_key="ctrl-d" extend_del_key="ctrl-alt-d" info_key="ctrl-o"
             local header="Manage Git Worktrees:"
-            header+=" ctrl-y:jump, ctrl-t:toggle, $del_key:delete, $extend_del_key:extended-delete"
-            header+=", $info_key:info"
+            header+=" ctrl-y:jump, ctrl-t:toggle, ${del_key}:delete"
+            header+=", ${extend_del_key}:extended-delete, ${info_key}:info"
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
                     --expect='"$del_key,$extend_del_key,$info_key"' \
