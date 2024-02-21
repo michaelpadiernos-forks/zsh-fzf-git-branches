@@ -386,31 +386,6 @@ fgb() {
                 esac
             done
 
-            local total_width
-            total_width="$(( c_branch_width + c_author_width + c_date_width + 5 ))"
-
-            if [ "$total_width" -gt "$WIDTH_OF_WINDOW" ]; then
-                c_show_author=false
-                total_width="$(( total_width - c_author_width ))"
-            fi
-
-            if [ "$total_width" -gt "$WIDTH_OF_WINDOW" ]; then
-                c_show_date=false
-                total_width="$(( total_width - c_date_width ))"
-            fi
-
-            # Calculate spacers
-            local spacer num_spacers=2
-            spacer="$(
-                echo "$WIDTH_OF_WINDOW $total_width $num_spacers" | \
-                    awk '{printf("%.0f", ($1 - $2) / $3)}'
-            )"
-            if [ "$spacer" -lt 0 ]; then
-                spacer=0
-            else
-                spacer=$(( spacer < 4 ? spacer : 4 ))
-            fi
-
             local branch branch_name author_name author_date bracket_open bracket_close
             while IFS= read -r branch; do
                 branch="${branch%%:*}"
@@ -433,14 +408,91 @@ fgb() {
                 if "$c_show_author"; then
                     author_name="${c_branch_author_map["$branch"]}"
                     printf \
-                        "%${spacer}s${col_g}%-${c_author_width}s${col_reset}" " " "$author_name"
+                        "%${c_spacer}s${col_g}%-${c_author_width}s${col_reset}" " " "$author_name"
                 fi
                 if "$c_show_date"; then
                     author_date="${c_branch_date_map["$branch"]}"
-                    printf "%${spacer}s(${col_b}%s${col_reset})" " " "$author_date"
+                    printf "%${c_spacer}s(${col_b}%s${col_reset})" " " "$author_date"
                 fi
                 echo
             done <<< "$c_branches"
+        }
+
+
+        __fgb_set_spacer_var() {
+            # Set spacer variables for branch/worktree list subcommands
+
+            local list_type="${1:-branch}"
+            # shellcheck disable=SC2076
+            if [[ ! " branch worktree " =~ " $list_type " ]]; then
+                echo "$0 error: invalid argument: \`$list_type'" >&2
+                return 1
+            fi
+
+            local num_spacers
+            if [[ $list_type == "branch" ]]; then
+                # Add 5 to avoid truncating the date column
+                c_total_width="$(( c_branch_width + c_author_width + c_date_width + 5 ))"
+
+                if [ "$c_total_width" -gt "$WIDTH_OF_WINDOW" ]; then
+                    c_show_author=false
+                    c_total_width="$(( c_total_width - c_author_width ))"
+                fi
+
+                if [ "$c_total_width" -gt "$WIDTH_OF_WINDOW" ]; then
+                    c_show_date=false
+                    c_total_width="$(( c_total_width - c_date_width ))"
+                fi
+
+                # Calculate spacers
+                num_spacers=2
+                c_spacer="$(
+                    echo "$WIDTH_OF_WINDOW $c_total_width $num_spacers" | \
+                        awk '{printf("%.0f", ($1 - $2) / $3)}'
+                )"
+                if [ "$c_spacer" -le 0 ]; then
+                    c_spacer=1
+                else
+                    c_spacer=$(( c_spacer < 4 ? c_spacer : 4 ))
+                fi
+            elif [[ $list_type == "worktree" ]]; then
+                # Add 5 to avoid truncating the date column
+                c_total_width="$((
+                        c_branch_width + c_wt_path_width + c_author_width + c_date_width + 5
+                ))"
+
+                if [ "$c_total_width" -gt "$WIDTH_OF_WINDOW" ]; then
+                    c_show_wt_path=false
+                    c_show_wt_flag=true
+                    c_total_width="$(( c_total_width - c_wt_path_width + 1 ))"
+                fi
+
+                if [ "$c_total_width" -gt "$WIDTH_OF_WINDOW" ]; then
+                    c_show_author=false
+                    c_total_width="$(( c_total_width - c_author_width ))"
+                fi
+
+                if [ "$c_total_width" -gt "$WIDTH_OF_WINDOW" ]; then
+                    c_show_date=false
+                    c_total_width="$(( c_total_width - c_date_width ))"
+                fi
+
+                # Calculate spacers
+                num_spacers=3
+                if "$c_show_wt_flag"; then
+                    num_spacers="$(( num_spacers + 1 ))"
+                    c_total_width="$(( c_total_width + 2 ))"
+                fi
+                c_spacer="$(
+                    echo "$WIDTH_OF_WINDOW $c_total_width $num_spacers" | \
+                        awk '{printf("%.0f", ($1 - $2) / $3)}'
+                )"
+                if [ "$c_spacer" -le 0 ]; then
+                    c_spacer=1
+                else
+                    c_spacer=$(( c_spacer < 4 ? c_spacer : 4 ))
+                fi
+            fi
         }
 
 
@@ -469,10 +521,37 @@ fgb() {
                 shift
             done
 
-            local del_key="ctrl-d" extend_del_key="ctrl-alt-d" info_key="ctrl-o"
+            local \
+                del_key="ctrl-d" \
+                extend_del_key="ctrl-alt-d" \
+                info_key="ctrl-o" \
+                column_branch="Branch" \
+                spacer_branch=" " \
+                column_author="Author" \
+                spacer_authour=" " \
+                column_date="Date" \
+                header_column_names_row
+
+            spacer_branch="$(
+                printf "%$(( c_branch_width + 2 - ${#column_branch} + c_spacer ))s" " "
+            )"
+            spacer_authour="$(printf "%$(( c_author_width - ${#column_author} + c_spacer ))s" " ")"
+
+            header_column_names_row="${column_branch}${spacer_branch}"
+            if "$c_show_author"; then
+                header_column_names_row+="${column_author}${spacer_authour}"
+            fi
+            if "$c_show_date"; then
+                header_column_names_row+="$column_date"
+            fi
+
             local header="Manage Git Branches:"
             header+=" ctrl-y:jump, ctrl-t:toggle, ${del_key}:delete"
             header+=", ${extend_del_key}:extended-delete, ${info_key}:info"
+            header+=$(__fgb_stdout_unindented "
+                |
+                |$header_column_names_row
+            ")
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
                     --expect='"$del_key,$extend_del_key,$info_key"' \
@@ -570,6 +649,7 @@ fgb() {
                     fi
                     c_branches="$(__fgb_git_branch_list "${branch_list_args[@]}")"
                     __fgb_branch_set_vars "$c_branches"
+                    __fgb_set_spacer_var branch
                     case $subcommand in
                         list) __fgb_branch_list "${other_args[@]}" ;;
                         manage) __fgb_branch_manage "${other_args[@]}" ;;
@@ -889,43 +969,6 @@ fgb() {
                 return 1
             fi
 
-            local total_width
-            total_width="$((
-                    c_branch_width + c_wt_path_width + c_author_width + c_date_width + 3
-            ))"
-
-            if [ "$total_width" -gt "$WIDTH_OF_WINDOW" ]; then
-                c_show_wt_path=false
-                c_show_wt_flag=true
-                total_width="$(( total_width - c_wt_path_width + 1 ))"
-            fi
-
-            if [ "$total_width" -gt "$WIDTH_OF_WINDOW" ]; then
-                c_show_author=false
-                total_width="$(( total_width - c_author_width ))"
-            fi
-
-            if [ "$total_width" -gt "$WIDTH_OF_WINDOW" ]; then
-                c_show_date=false
-                total_width="$(( total_width - c_date_width ))"
-            fi
-
-            # Calculate spacers
-            local spacer num_spacers=3
-            if "$c_show_wt_flag"; then
-                num_spacers="$(( num_spacers + 1 ))"
-                total_width="$(( total_width + 2 ))"
-            fi
-            spacer="$(
-                echo "$WIDTH_OF_WINDOW $total_width $num_spacers" | \
-                    awk '{printf("%.0f", ($1 - $2) / $3)}'
-            )"
-            if [ "$spacer" -lt 0 ]; then
-                spacer=0
-            else
-                spacer=$(( spacer < 4 ? spacer : 4 ))
-            fi
-
             local branch wt_path author_name author_date bracket_open bracket_close
             while IFS= read -r branch; do
                 branch="${branch%%:*}"
@@ -956,7 +999,7 @@ fgb() {
                         wt_path=" "
                     fi
                     printf \
-                        "%${spacer}s${col_bold}%-${c_wt_path_width}s${col_reset}" \
+                        "%${c_spacer}s${col_bold}%-${c_wt_path_width}s${col_reset}" \
                         " " \
                         "$wt_path"
                 fi
@@ -966,16 +1009,16 @@ fgb() {
                     else
                         wt_path=" "
                     fi
-                    printf "%${spacer}s${col_bold}%s${col_reset}" " " "$wt_path"
+                    printf "%${c_spacer}s${col_bold}%s${col_reset}" " " "$wt_path"
                 fi
                 if "$c_show_author"; then
                     author_name="${c_branch_author_map["$branch"]}"
                     printf \
-                        "%${spacer}s${col_g}%-${c_author_width}s${col_reset}" " " "$author_name"
+                        "%${c_spacer}s${col_g}%-${c_author_width}s${col_reset}" " " "$author_name"
                 fi
                 if "$c_show_date"; then
                     author_date="${c_branch_date_map["$branch"]}"
-                    printf "%${spacer}s(${col_b}%s${col_reset})" " " "$author_date"
+                    printf "%${c_spacer}s(${col_b}%s${col_reset})" " " "$author_date"
                 fi
                 echo
             done <<< "$sorted_branches_list"
@@ -1056,15 +1099,40 @@ fgb() {
             done <<< "$branches")"
 
             __fgb_branch_set_vars "$c_branches"
+            __fgb_set_spacer_var worktree
 
             local \
                 del_key="ctrl-d" \
                 extend_del_key="ctrl-alt-d" \
                 info_key="ctrl-o" \
-                verbose_key="ctrl-v"
+                verbose_key="ctrl-v" \
+                column_branch="Branch" \
+                spacer_branch=" " \
+                column_author="Author" \
+                spacer_author=" " \
+                column_date="Date" \
+                header_column_names_row
+
+            spacer_branch="$(
+                printf "%$(( c_branch_width + 2 - ${#column_branch} + c_spacer ))s" " "
+            )"
+            spacer_author="$(printf "%$(( c_author_width - ${#column_author} + c_spacer ))s" " ")"
+
+            header_column_names_row="${column_branch}${spacer_branch}"
+            if "$c_show_author"; then
+                header_column_names_row+="${column_author}${spacer_author}"
+            fi
+            if "$c_show_date"; then
+                header_column_names_row+="$column_date"
+            fi
+
             local header="Add a Git Worktree:"
             header+=" ctrl-y:jump, ctrl-t:toggle, ${del_key}:delete"
             header+=", ${extend_del_key}:extended-delete, ${info_key}:info, ${verbose_key}:verbose"
+            header+=$(__fgb_stdout_unindented "
+                |
+                |$header_column_names_row
+            ")
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
                     --expect='"$del_key,$extend_del_key,$info_key,$verbose_key"' \
@@ -1161,15 +1229,51 @@ fgb() {
             fi
 
             __fgb_branch_set_vars "$c_branches"
+            __fgb_set_spacer_var worktree
 
             local \
                 del_key="ctrl-d" \
                 extend_del_key="ctrl-alt-d" \
                 info_key="ctrl-o" \
-                verbose_key="ctrl-v"
+                verbose_key="ctrl-v" \
+                column_branch="Branch" \
+                spacer_branch=" " \
+                column_wt="WT" \
+                spacer_wt=" " \
+                column_author="Author" \
+                spacer_author=" " \
+                column_date="Date" \
+                header_column_names_row
+
+            spacer_branch="$(
+                printf "%$(( c_branch_width + 2 - ${#column_branch} + c_spacer ))s" " "
+            )"
+            if "$c_show_wt_path"; then
+                spacer_wt="$(printf "%$(( c_wt_path_width - ${#column_wt} + c_spacer ))s" " ")"
+            elif "$c_show_wt_flag"; then
+                column_wt="W"
+                spacer_wt="$(printf "%$(( 1 - ${#column_wt} + c_spacer ))s" " ")"
+            fi
+            spacer_author="$(printf "%$(( c_author_width - ${#column_author} + c_spacer ))s" " ")"
+
+            header_column_names_row="${column_branch}${spacer_branch}"
+            if "$c_show_wt_path" || "$c_show_wt_flag"; then
+                header_column_names_row+="${column_wt}${spacer_wt}"
+            fi
+            if "$c_show_author"; then
+                header_column_names_row+="${column_author}${spacer_author}"
+            fi
+            if "$c_show_date"; then
+                header_column_names_row+="$column_date"
+            fi
+
             local header="Manage Git Worktrees (total):"
             header+=" ctrl-y:jump, ctrl-t:toggle, ${del_key}:delete"
             header+=", ${extend_del_key}:extended-delete, ${info_key}:info, ${verbose_key}:verbose"
+            header+=$(__fgb_stdout_unindented "
+                |
+                |$header_column_names_row
+            ")
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
                     --expect='"$del_key,$extend_del_key,$info_key,$verbose_key"' \
@@ -1267,10 +1371,48 @@ fgb() {
                 return 128
             fi
 
-            local del_key="ctrl-d" extend_del_key="ctrl-alt-d" info_key="ctrl-o"
+            local \
+                del_key="ctrl-d" \
+                extend_del_key="ctrl-alt-d" \
+                info_key="ctrl-o" \
+                column_branch="Branch" \
+                spacer_branch=" " \
+                column_wt="WT" \
+                spacer_wt=" " \
+                column_author="Author" \
+                spacer_author=" " \
+                column_date="Date" \
+                header_column_names_row
+
+            spacer_branch="$(
+                printf "%$(( c_branch_width + 2 - ${#column_branch} + c_spacer ))s" " "
+            )"
+            if "$c_show_wt_path"; then
+                spacer_wt="$(printf "%$(( c_wt_path_width - ${#column_wt} + c_spacer ))s" " ")"
+            elif "$c_show_wt_flag"; then
+                column_wt="W"
+                spacer_wt="$(printf "%$(( 1 - ${#column_wt} + c_spacer ))s" " ")"
+            fi
+            spacer_author="$(printf "%$(( c_author_width - ${#column_author} + c_spacer ))s" " ")"
+
+            header_column_names_row="${column_branch}${spacer_branch}"
+            if "$c_show_wt_path" || "$c_show_wt_flag"; then
+                header_column_names_row+="${column_wt}${spacer_wt}"
+            fi
+            if "$c_show_author"; then
+                header_column_names_row+="${column_author}${spacer_author}"
+            fi
+            if "$c_show_date"; then
+                header_column_names_row+="$column_date"
+            fi
+
             local header="Manage Git Worktrees:"
             header+=" ctrl-y:jump, ctrl-t:toggle, ${del_key}:delete"
             header+=", ${extend_del_key}:extended-delete, ${info_key}:info"
+            header+=$(__fgb_stdout_unindented "
+                |
+                |$header_column_names_row
+            ")
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
                     --expect='"$del_key,$extend_del_key,$info_key"' \
@@ -1380,6 +1522,7 @@ fgb() {
             case $subcommand in
                 list | manage)
                     __fgb_worktree_set_vars || return $?
+                    __fgb_set_spacer_var worktree
 
                     local -a positional_args=()
                     while [ $# -gt 0 ]; do
@@ -1448,6 +1591,8 @@ fgb() {
             c_branches="" \
             c_branch_width=0 \
             c_author_width=0 \
+            c_total_width=0 \
+            c_spacer=1 \
             c_worktree_branches="" \
             c_wt_path_width=0 \
             c_show_author=true \
@@ -1728,6 +1873,7 @@ fgb() {
         __fgb_git_branch_list \
         __fgb_git_worktree_delete \
         __fgb_git_worktree_jump_or_add \
+        __fgb_set_spacer_var \
         __fgb_stdout_unindented \
         __fgb_worktree \
         __fgb_worktree_add \
