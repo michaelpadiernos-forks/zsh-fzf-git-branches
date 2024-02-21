@@ -77,25 +77,7 @@ fgb() {
         __fgb_git_branch_delete() {
             # Delete a Git branch
 
-            local force=false extend=false
-            local -a positional_args=()
-            while [ $# -gt 0 ]; do
-                case "$1" in
-                    -f | --force)
-                        force=true
-                        ;;
-                    -e | --extend)
-                        extend=true
-                        ;;
-                    "") ;; # Skip empty arguments
-                    *)
-                        positional_args+=("$1")
-                        ;;
-                esac
-                shift
-            done
-
-            if [ "${#positional_args[@]}" -eq 0 ]; then
+            if [[ -z "$1" ]]; then
                 echo "$0: Missing argument: list of branches" >&2
                 return 1
             fi
@@ -103,7 +85,7 @@ fgb() {
             local \
                 branch \
                 branch_name \
-                branches_to_delete="${positional_args[*]}" \
+                branches_to_delete="$1" \
                 is_remote \
                 local_branches \
                 local_tracking \
@@ -112,7 +94,7 @@ fgb() {
                 remote_tracking \
                 upstream \
                 user_prompt
-            local -a array_of_lines=() branch_delete_args=()
+            local -a array_of_lines=()
             if [[ -n "${ZSH_VERSION-}" ]]; then
                 # shellcheck disable=SC2116,SC2296
                 array_of_lines=("${(f@)$(echo "$branches_to_delete")}")
@@ -149,7 +131,7 @@ fgb() {
                     return 1
                 fi
 
-                if "$extend"; then
+                if "$c_extend_del"; then
                     if "$is_remote"; then
                         if ! local_branches="$(__fgb_git_branch_list)"; then
                             echo -e "$local_branches" >&2
@@ -186,13 +168,12 @@ fgb() {
                     # NOTE: Avoid --force here as it's no undoable operation for remote branches
                     if __fgb_confirmation_dialog "$user_prompt"; then
                         git push --delete "$remote_name" "$branch_name" || return $?
-                        if "$extend"; then
+                        if "$c_extend_del"; then
                             if [[ -n "$local_tracking" ]]; then
-                                "$force" && branch_delete_args+=("--force")
                                 branch="$c_bracket_loc_open"
                                 branch+="${local_tracking#refs/heads/}"
                                 branch+="$c_bracket_loc_close"
-                                __fgb_git_branch_delete "$branch" "${branch_delete_args[@]}"
+                                __fgb_git_branch_delete "$branch"
                             fi
                         fi
                     fi
@@ -201,7 +182,7 @@ fgb() {
                         |${col_r_bold}Delete${col_reset} \#
                         |local branch: \`${col_b_bold}${branch_name}${col_reset}'?
                     ")
-                    if "$force" || __fgb_confirmation_dialog "$user_prompt"; then
+                    if "$c_force" || __fgb_confirmation_dialog "$user_prompt"; then
                         if ! output="$(git branch -d "$branch_name" 2>&1)"; then
                             local head_branch; head_branch="$(git rev-parse --abbrev-ref HEAD)"
                             if ! grep -q "^error: .* is not fully merged\.$" <<< "$output"; then
@@ -224,13 +205,12 @@ fgb() {
                             fi
                         else
                             echo "$output"
-                            if "$extend"; then
+                            if "$c_extend_del"; then
                                 if [[ -n "$remote_tracking" ]]; then
-                                    "$force" && branch_delete_args+=("--force")
                                     branch="$c_bracket_rem_open"
                                     branch+="${remote_tracking#refs/remotes/}"
                                     branch+="$c_bracket_rem_close"
-                                    __fgb_git_branch_delete "$branch" "${branch_delete_args[@]}"
+                                    __fgb_git_branch_delete "$branch"
                                 fi
                             fi
                         fi
@@ -368,24 +348,6 @@ fgb() {
         __fgb_branch_list() {
             # List branches in a git repository
 
-            while [ $# -gt 0 ]; do
-                case "$1" in
-                    -h | --help)
-                        echo "${usage_message[branch_list]}"
-                        ;;
-                    --* | -*)
-                        echo "error: unknown option: \`$1'" >&2
-                        echo "${usage_message[branch_list]}" >&2
-                        return 1
-                        ;;
-                    *)
-                        echo "error: unknown argument: \`$1'" >&2
-                        echo "${usage_message[branch_list]}" >&2
-                        return 1
-                        ;;
-                esac
-            done
-
             local branch branch_name author_name author_date bracket_open bracket_close
             while IFS= read -r branch; do
                 branch="${branch%%:*}"
@@ -499,28 +461,6 @@ fgb() {
         __fgb_branch_manage() {
             # Manage Git branches
 
-            local -a positional_args=()
-            local force
-            while [ $# -gt 0 ]; do
-                case "$1" in
-                    -f | --force)
-                        force="--force"
-                        ;;
-                    -h | --help)
-                        echo "${usage_message[branch_manage]}"
-                        ;;
-                    --* | -*)
-                        echo "error: unknown option: \`$1'" >&2
-                        echo "${usage_message[branch_manage]}" >&2
-                        return 1
-                        ;;
-                    *)
-                        positional_args+=("$1")
-                        ;;
-                esac
-                shift
-            done
-
             local \
                 del_key="ctrl-d" \
                 extend_del_key="ctrl-alt-d" \
@@ -558,8 +498,8 @@ fgb() {
                     --header '$header' \
                 "
 
-            if [[ "${#positional_args[@]}" -gt 0 ]]; then
-                fzf_cmd+=" --query='${positional_args[*]}'"
+            if [[ "${#@}" -gt 0 ]]; then
+                fzf_cmd+=" --query='$*'"
             fi
 
             local lines; lines="$(__fgb_branch_list | eval "$fzf_cmd" | cut -d' ' -f1)"
@@ -584,9 +524,10 @@ fgb() {
             # Remove the first and the last characters (brackets)
             branch="${branch:1}"; branch="${branch%?}"
             case $key in
-                "$del_key") __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force" ;;
+                "$del_key") __fgb_git_branch_delete "$(sed 1d <<< "$lines")" ;;
                 "$extend_del_key")
-                    __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force" --extend
+                    c_extend_del=true
+                    __fgb_git_branch_delete "$(sed 1d <<< "$lines")"
                     ;;
                 "$info_key")
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
@@ -618,28 +559,7 @@ fgb() {
             # Manage Git branches
 
             local subcommand="$1"
-            local -a branch_list_args=() other_args=()
             shift
-
-            while [ $# -gt 0 ]; do
-                case "$1" in
-                    -s | --sort)
-                        branch_list_args+=("$1")
-                        shift
-                        branch_list_args+=("$1")
-                        ;;
-                    --sort=*)
-                        branch_list_args+=("$1")
-                        ;;
-                    -r | --remotes | -a | --all)
-                        branch_list_args+=("$1")
-                        ;;
-                    *)
-                        other_args+=("$1")
-                        ;;
-                esac
-                shift
-            done
 
             case $subcommand in
                 list | manage)
@@ -647,12 +567,56 @@ fgb() {
                         echo "Not inside a Git repository. Exit..." >&2
                         return 128
                     fi
+
+                    local -a branch_list_args=() fzf_query=()
+                    while [ $# -gt 0 ]; do
+                        case "$1" in
+                            -s | --sort)
+                                branch_list_args+=("$1")
+                                shift
+                                branch_list_args+=("$1")
+                                ;;
+                            --sort=*)
+                                branch_list_args+=("$1")
+                                ;;
+                            -r | --remotes | -a | --all)
+                                branch_list_args+=("$1")
+                                ;;
+                            -f | --force)
+                                if [[ "$subcommand" == "list" ]]; then
+                                    echo "error: unknown option: \`$1'" >&2
+                                    echo "${usage_message[branch_$subcommand]}" >&2
+                                    return 1
+                                fi
+                                c_force=true
+                                ;;
+                            -h | --help)
+                                echo "${usage_message[branch_$subcommand]}"
+                                return 0
+                                ;;
+                            --* | -*)
+                                echo "error: unknown option: \`$1'" >&2
+                                echo "${usage_message[branch_$subcommand]}" >&2
+                                return 1
+                                ;;
+                            *)
+                                if [[ "$subcommand" == "list" ]]; then
+                                    echo "error: unknown option: \`$1'" >&2
+                                    echo "${usage_message[branch_$subcommand]}" >&2
+                                    return 1
+                                fi
+                                fzf_query+=("$1")
+                                ;;
+                        esac
+                        shift
+                    done
+
                     c_branches="$(__fgb_git_branch_list "${branch_list_args[@]}")"
                     __fgb_branch_set_vars "$c_branches"
                     __fgb_set_spacer_var branch
                     case $subcommand in
-                        list) __fgb_branch_list "${other_args[@]}" ;;
-                        manage) __fgb_branch_manage "${other_args[@]}" ;;
+                        list) __fgb_branch_list ;;
+                        manage) __fgb_branch_manage "${fzf_query[@]}" ;;
                     esac
                     ;;
                 -h | --help)
@@ -675,30 +639,13 @@ fgb() {
         __fgb_git_worktree_delete() {
             # Delete a Git worktree for a given branch
 
-            local force=false extend=false
-            local -a positional_args=()
-            while [ $# -gt 0 ]; do
-                case "$1" in
-                    -f | --force)
-                        force=true
-                        ;;
-                    -e | --extend)
-                        extend=true
-                        ;;
-                    "") ;; # Skip empty arguments
-                    *)
-                        positional_args+=("$1")
-                        ;;
-                esac
-                shift
-            done
-
-            if [ "${#positional_args[@]}" -eq 0 ]; then
+            if [[ -z "$1" ]]; then
                 echo "$0: Missing argument: list of branches" >&2
                 return 1
             fi
 
             local \
+                force_bak="$c_force" \
                 branch_name \
                 error_pattern \
                 is_in_target_wt=false \
@@ -706,7 +653,7 @@ fgb() {
                 output \
                 success_message \
                 user_prompt \
-                worktrees_to_delete="${positional_args[*]}" \
+                worktrees_to_delete="$1" \
                 wt_path
             local -a array_of_lines
             if [[ -n "${ZSH_VERSION-}" ]]; then
@@ -718,7 +665,6 @@ fgb() {
                     array_of_lines+=( "$line" )
                 done <<< "$worktrees_to_delete"
             fi
-            local -a branch_delete_args=()
             for branch_name in "${array_of_lines[@]}"; do
                 is_remote=false
                 wt_path=""
@@ -745,7 +691,7 @@ fgb() {
                         |${col_y_bold}${wt_path}${col_reset}, \#
                         |for branch '${col_b_bold}${branch_name}${col_reset}'?
                     ")
-                    if "$force" || __fgb_confirmation_dialog "$user_prompt"; then
+                    if "$c_force" || __fgb_confirmation_dialog "$user_prompt"; then
                         success_message=$(__fgb_stdout_unindented "
                             |${col_g_bold}Deleted${col_reset} worktree: \#
                             |${col_y_bold}${wt_path}${col_reset} \#
@@ -781,13 +727,11 @@ fgb() {
                                 |'${col_b_bold}${branch_name}${col_reset}' branch as well?
                                 ")
                                 if __fgb_confirmation_dialog "$user_prompt"; then
-                                    branch_delete_args+=("--force")
-                                    "$extend" && branch_delete_args+=("--extend")
+                                    c_force=true
                                     branch_name="${c_bracket_loc_open}${branch_name}"
                                     branch_name+="$c_bracket_loc_close"
-                                    __fgb_git_branch_delete \
-                                        "$branch_name" \
-                                        "${branch_delete_args[@]}"
+                                    __fgb_git_branch_delete "$branch_name"
+                                    c_force="$force_bak"
                                 fi
                             else
                                 if "$is_in_target_wt"; then
@@ -795,7 +739,7 @@ fgb() {
                                 fi
                             fi
                         else
-                            if "$force"; then
+                            if "$c_force"; then
                                 echo -e "$success_message"
                             fi
                             user_prompt=$(__fgb_stdout_unindented "
@@ -803,11 +747,11 @@ fgb() {
                                 |'${col_b_bold}${branch_name}${col_reset}' branch as well?
                             ")
                             if __fgb_confirmation_dialog "$user_prompt"; then
-                                branch_delete_args+=("--force")
-                                "$extend" && branch_delete_args+=("--extend")
+                                c_force=true
                                 branch_name="${c_bracket_loc_open}${branch_name}"
                                 branch_name+="$c_bracket_loc_close"
-                                __fgb_git_branch_delete "$branch_name" "${branch_delete_args[@]}"
+                                __fgb_git_branch_delete "$branch_name"
+                                c_force="$force_bak"
                             fi
                         fi
                     else
@@ -817,8 +761,7 @@ fgb() {
                     fi
                 else
                     # Process a branch that doesn't have a corresponding worktree
-                    "$force" && branch_delete_args+=("--force")
-                    "$extend" && branch_delete_args+=("--extend")
+                    c_force=true
                     if "$is_remote"; then
                         branch_name="${c_bracket_rem_open}${branch_name}"
                         branch_name+="$c_bracket_rem_close"
@@ -826,7 +769,8 @@ fgb() {
                         branch_name="${c_bracket_loc_open}${branch_name}"
                         branch_name+="$c_bracket_loc_close"
                     fi
-                    __fgb_git_branch_delete "$branch_name" "${branch_delete_args[@]}"
+                    __fgb_git_branch_delete "$branch_name"
+                    c_force="$force_bak"
                 fi
             done
         }
@@ -842,7 +786,6 @@ fgb() {
 
             local \
                 branch_name="$1" \
-                confirm="${2:-false}" \
                 remote_branch
             # shellcheck disable=SC2053
             if [[ "$branch_name" == "$c_bracket_rem_open"*/*"$c_bracket_rem_close" ]]; then
@@ -872,7 +815,7 @@ fgb() {
                     return 1
                 fi
             else
-                if "$confirm"; then
+                if "$c_confirmed"; then
                     wt_path="${c_bare_repo_path}/${branch_name}"
                 else
                     if [[ -n "$remote_branch" ]]; then
@@ -918,56 +861,7 @@ fgb() {
         __fgb_worktree_list() {
             # List worktrees in a git repository
 
-            local -a branch_list_args=()
-
-            while [ $# -gt 0 ]; do
-                case "$1" in
-                    -s | --sort)
-                        branch_list_args+=("$1")
-                        shift
-                        branch_list_args+=("$1")
-                        ;;
-                    --sort=*)
-                        branch_list_args+=("$1")
-                        ;;
-                    --filter)
-                        branch_list_args+=("$1")
-                        shift
-                        branch_list_args+=("$1")
-                        ;;
-                    --filter=*)
-                        branch_list_args+=("$1")
-                        ;;
-                    -r | --remotes | -a | --all)
-                        branch_list_args+=("$1")
-                        ;;
-                    -h | --help)
-                        echo "${usage_message[worktree_list]}"
-                        ;;
-                    --* | -*)
-                        echo "error: unknown option: \`$1'" >&2
-                        echo "${usage_message[worktree_list]}" >&2
-                        return 1
-                        ;;
-                    *)
-                        echo "error: unknown argument: \`$1'" >&2
-                        echo "${usage_message[worktree_list]}" >&2
-                        return 1
-                        ;;
-                esac
-                shift
-            done
-
-            if ! (git worktree list | grep -q " (bare)$") &>/dev/null; then
-                echo "Not inside a bare Git repository. Exit..." >&2
-                return 128
-            fi
-
-            local sorted_branches_list
-            if ! sorted_branches_list="$(__fgb_git_branch_list "${branch_list_args[@]}")"; then
-                echo -e "$sorted_branches_list" >&2
-                return 1
-            fi
+            __fgb_set_spacer_var worktree
 
             local branch wt_path author_name author_date bracket_open bracket_close
             while IFS= read -r branch; do
@@ -1021,60 +915,12 @@ fgb() {
                     printf "%${c_spacer}s(${col_b}%s${col_reset})" " " "$author_date"
                 fi
                 echo
-            done <<< "$sorted_branches_list"
+            done <<< "$c_branches"
         }
 
 
         __fgb_worktree_add() {
             # Add a new worktree for a given branch
-
-            local -a branch_list_args=() positional_args=()
-            local confirm force
-
-            while [ $# -gt 0 ]; do
-                case "$1" in
-                    -s | --sort)
-                        branch_list_args+=("$1")
-                        shift
-                        branch_list_args+=("$1")
-                        ;;
-                    --sort=*)
-                        branch_list_args+=("$1")
-                        ;;
-                    -r | --remotes | -a | --all)
-                        branch_list_args+=("$1")
-                        ;;
-                    -c | --confirm)
-                        confirm=true
-                        ;;
-                    -f | --force)
-                        force="--force"
-                        ;;
-                    -h | --help)
-                        echo "${usage_message[worktree_add]}"
-                        ;;
-                    --* | -*)
-                        echo "error: unknown option: \`$1'" >&2
-                        echo "${usage_message[worktree_add]}" >&2
-                        return 1
-                        ;;
-                    *)
-                        positional_args+=("$1")
-                        ;;
-                esac
-                shift
-            done
-
-            if ! (git worktree list | grep -q " (bare)$") &>/dev/null; then
-                echo "Not inside a bare Git repository. Exit..." >&2
-                return 128
-            fi
-
-            local branches
-            if ! branches="$(__fgb_git_branch_list "${branch_list_args[@]}")"; then
-                echo -e "$branches" >&2
-                return 1
-            fi
 
             local line branch upstream wt_branch
             c_branches="$(while IFS= read -r line; do
@@ -1096,7 +942,7 @@ fgb() {
                         done <<< "$c_worktree_branches"
                     fi
                     echo "$line"
-            done <<< "$branches")"
+            done <<< "$c_branches")"
 
             __fgb_branch_set_vars "$c_branches"
             __fgb_set_spacer_var worktree
@@ -1139,8 +985,8 @@ fgb() {
                     --header '$header' \
                 "
 
-            if [[ "${#positional_args[@]}" -gt 0 ]]; then
-                fzf_cmd+=" --query='${positional_args[*]}'"
+            if [[ "${#@}" -gt 0 ]]; then
+                fzf_cmd+=" --query='$*'"
             fi
 
             local lines; lines="$(
@@ -1157,9 +1003,10 @@ fgb() {
 
             local branch; branch="$(tail -1 <<< "$lines")"
             case $key in
-                "$del_key") __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force" ;;
+                "$del_key") __fgb_git_branch_delete "$(sed 1d <<< "$lines")" ;;
                 "$extend_del_key")
-                    __fgb_git_branch_delete "$(sed 1d <<< "$lines")" "$force" --extend
+                    c_extend_del=true
+                    __fgb_git_branch_delete "$(sed 1d <<< "$lines")"
                     ;;
                 "$info_key")
                     # Remove the first and the last characters (brackets)
@@ -1173,60 +1020,14 @@ fgb() {
                     )${col_reset}"
                     echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
                     ;;
-                "$verbose_key") __fgb_git_worktree_jump_or_add "$branch" ;;
-                *) __fgb_git_worktree_jump_or_add "$branch" "$confirm" ;;
+                "$verbose_key") c_confirmed=false; __fgb_git_worktree_jump_or_add "$branch" ;;
+                *) __fgb_git_worktree_jump_or_add "$branch" ;;
             esac
         }
 
 
         __fgb_worktree_total() {
             # Manage Git worktrees
-
-            local -a branch_list_args=() positional_args=()
-
-            while [ $# -gt 0 ]; do
-                case "$1" in
-                    -s | --sort)
-                        branch_list_args+=("$1")
-                        shift
-                        branch_list_args+=("$1")
-                        ;;
-                    --sort=*)
-                        branch_list_args+=("$1")
-                        ;;
-                    -r | --remotes | -a | --all)
-                        branch_list_args+=("$1")
-                        ;;
-                    -c | --confirm)
-                        confirm=true
-                        ;;
-                    -f | --force)
-                        force="--force"
-                        ;;
-                    -h | --help)
-                        echo "${usage_message[worktree_total]}"
-                        ;;
-                    --* | -*)
-                        echo "error: unknown option: \`$1'" >&2
-                        echo "${usage_message[worktree_total]}" >&2
-                        return 1
-                        ;;
-                    *)
-                        positional_args+=("$1")
-                        ;;
-                esac
-                shift
-            done
-
-            if ! (git worktree list | grep -q " (bare)$") &>/dev/null; then
-                echo "Not inside a bare Git repository. Exit..." >&2
-                return 128
-            fi
-
-            if ! c_branches="$(__fgb_git_branch_list "${branch_list_args[@]}")"; then
-                echo -e "$c_branches" >&2
-                return 1
-            fi
 
             __fgb_branch_set_vars "$c_branches"
             __fgb_set_spacer_var worktree
@@ -1280,15 +1081,11 @@ fgb() {
                     --header '$header' \
                 "
 
-            if [[ "${#positional_args[@]}" -gt 0 ]]; then
-                fzf_cmd+=" --query='${positional_args[*]}'"
+            if [[ "${#@}" -gt 0 ]]; then
+                fzf_cmd+=" --query='$*'"
             fi
 
-            local lines; lines="$(
-                __fgb_worktree_list "${branch_list_args[@]}" | \
-                    eval "$fzf_cmd" | \
-                    cut -d' ' -f1
-            )"
+            local lines; lines="$(__fgb_worktree_list | eval "$fzf_cmd" | cut -d' ' -f1)"
 
             if [[ -z "$lines" ]]; then
                 return
@@ -1298,9 +1095,10 @@ fgb() {
 
             local branch; branch="$(tail -1 <<< "$lines")"
             case $key in
-                "$del_key") __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force" ;;
+                "$del_key") __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" ;;
                 "$extend_del_key")
-                    __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force" --extend
+                    c_extend_del=true
+                    __fgb_git_worktree_delete "$(sed 1d <<< "$lines")"
                     ;;
                 "$info_key")
                     # Remove the first and the last characters (brackets)
@@ -1318,8 +1116,8 @@ fgb() {
                     )${col_reset}"
                     echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
                     ;;
-                "$verbose_key") __fgb_git_worktree_jump_or_add "$branch" ;;
-                *) __fgb_git_worktree_jump_or_add "$branch" "$confirm" ;;
+                "$verbose_key") c_confirmed=false; __fgb_git_worktree_jump_or_add "$branch" ;;
+                *) __fgb_git_worktree_jump_or_add "$branch" ;;
             esac
         }
 
@@ -1327,49 +1125,7 @@ fgb() {
         __fgb_worktree_manage() {
             # Manage Git worktrees
 
-            local -a branch_list_args=() positional_args=()
-            local force
-
-            while [ $# -gt 0 ]; do
-                case "$1" in
-                    -f | --force)
-                        force="--force"
-                        ;;
-                    -s | --sort)
-                        branch_list_args+=("$1")
-                        shift
-                        branch_list_args+=("$1")
-                        ;;
-                    --sort=*)
-                        branch_list_args+=("$1")
-                        ;;
-                    --filter)
-                        branch_list_args+=("$1")
-                        shift
-                        branch_list_args+=("$1")
-                        ;;
-                    --filter=*)
-                        branch_list_args+=("$1")
-                        ;;
-                    -h | --help)
-                        echo "${usage_message[worktree_manage]}"
-                        ;;
-                    --* | -*)
-                        echo "error: unknown option: \`$1'" >&2
-                        echo "${usage_message[worktree_manage]}" >&2
-                        return 1
-                        ;;
-                    *)
-                        positional_args+=("$1")
-                        ;;
-                esac
-                shift
-            done
-
-            if ! (git worktree list | grep -q " (bare)$") &>/dev/null; then
-                echo "Not inside a bare Git repository. Exit..." >&2
-                return 128
-            fi
+            __fgb_set_spacer_var worktree
 
             local \
                 del_key="ctrl-d" \
@@ -1419,15 +1175,11 @@ fgb() {
                     --header '$header' \
                 "
 
-            if [[ "${#positional_args[@]}" -gt 0 ]]; then
-                fzf_cmd+=" --query='${positional_args[*]}'"
+            if [[ "${#@}" -gt 0 ]]; then
+                fzf_cmd+=" --query='$*'"
             fi
 
-            local lines; lines="$(
-                __fgb_worktree_list "${branch_list_args[@]}" | \
-                    eval "$fzf_cmd" | \
-                    cut -d' ' -f1
-            )"
+            local lines; lines="$(__fgb_worktree_list | eval "$fzf_cmd" | cut -d' ' -f1)"
 
             if [[ -z "$lines" ]]; then
                 return
@@ -1437,9 +1189,10 @@ fgb() {
 
             local branch; branch="$(tail -1 <<< "$lines")"
             case $key in
-                "$del_key") __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force" ;;
+                "$del_key") __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" ;;
                 "$extend_del_key")
-                    __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" "$force" --extend
+                    c_extend_del=true
+                    __fgb_git_worktree_delete "$(sed 1d <<< "$lines")"
                     ;;
                 "$info_key")
                     # Remove the first and the last characters (brackets)
@@ -1520,44 +1273,63 @@ fgb() {
             local subcommand="$1"
             shift
             case $subcommand in
-                list | manage)
-                    __fgb_worktree_set_vars || return $?
-                    __fgb_set_spacer_var worktree
+                add | list | manage | total)
+                    if ! (git worktree list | grep -q " (bare)$") &>/dev/null; then
+                        echo "Not inside a bare Git repository. Exit..." >&2
+                        return 128
+                    fi
 
-                    local -a positional_args=()
+                    __fgb_worktree_set_vars || return $?
+
+                    local -a fzf_query=() branch_list_args=()
                     while [ $# -gt 0 ]; do
                         case "$1" in
-                            --filter | --filter=* | -r | --remotes | -a | --all | -c | --confirm)
+                            -r | --remotes | -a | --all | -c | --confirm)
+                                # shellcheck disable=SC2076
+                                if [[ " list manage " =~ " $subcommand " ]]; then
+                                    echo "error: unknown option: \`$1'" >&2
+                                    echo "${usage_message[worktree_$subcommand]}" >&2
+                                    return 1
+                                fi
+                                case "$1" in
+                                    -r | --remotes | -a | --all) branch_list_args+=("$1") ;;
+                                    -c | --confirm) c_confirmed=true ;;
+                                esac
+                                ;;
+                            -s | --sort)
+                                branch_list_args+=("$1")
+                                shift
+                                branch_list_args+=("$1")
+                                ;;
+                            --sort=*) branch_list_args+=("$1") ;;
+                            -f | --force) c_force=true ;;
+                            -h | --help) echo "${usage_message[worktree_$subcommand]}" >&2 ;;
+                            --* | -*)
                                 echo "error: unknown option: \`$1'" >&2
                                 echo "${usage_message[worktree_$subcommand]}" >&2
                                 return 1
                                 ;;
-                            *)
-                                positional_args+=("$1")
-                                ;;
+                            *) fzf_query+=("$1") ;;
                         esac
                         shift
                     done
+
+                    # shellcheck disable=SC2076
+                    if [[ " list manage " =~ " $subcommand " ]]; then
+                        branch_list_args+=("--filter" "$c_worktree_branches")
+                    fi
+
+                    if ! c_branches="$(__fgb_git_branch_list "${branch_list_args[@]}")"; then
+                        echo -e "$c_branches" >&2
+                        return 1
+                    fi
+
                     case "$subcommand" in
-                        list)
-                            __fgb_worktree_list \
-                                "${positional_args[@]}" \
-                                --filter="$c_worktree_branches"
-                            ;;
-                        manage)
-                            __fgb_worktree_manage \
-                                "${positional_args[@]}" \
-                                --filter="$c_worktree_branches"
-                            ;;
+                        add) __fgb_worktree_add "${fzf_query[@]}" ;;
+                        list) __fgb_worktree_list ;;
+                        manage) __fgb_worktree_manage "${fzf_query[@]}" ;;
+                        total) __fgb_worktree_total "${fzf_query[@]}" ;;
                     esac
-                    ;;
-                add)
-                    __fgb_worktree_set_vars || return $?
-                    __fgb_worktree_add "$@"
-                    ;;
-                total)
-                    __fgb_worktree_set_vars || return $?
-                    __fgb_worktree_total "$@"
                     ;;
                 -h | --help)
                     echo "${usage_message[worktree]}"
@@ -1603,6 +1375,9 @@ fgb() {
             c_bracket_loc_close="]" \
             c_bracket_rem_open="(" \
             c_bracket_rem_close=")" \
+            c_force=false \
+            c_extend_del=false \
+            c_confirmed=false \
             c_date_width=17 # Example: (99 minutes ago)
 
         local -A \
