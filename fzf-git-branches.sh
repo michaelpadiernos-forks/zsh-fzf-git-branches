@@ -22,7 +22,7 @@ fgb() {
         "
     local FZF_CMD_GLOB
     if [[ $fzf_version -gt $fzf_min_version ]]; then
-        FZF_CMD_GLOB="fzf --height 40% --reverse $FZF_ARGS_GLOB"
+        FZF_CMD_GLOB="fzf --height 80% --reverse $FZF_ARGS_GLOB"
     elif [[ ${FZF_TMUX:-1} -eq 1 ]]; then
         FZF_CMD_GLOB="fzf-tmux -d${FZF_TMUX_HEIGHT:-40%}"
     else
