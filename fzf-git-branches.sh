@@ -131,8 +131,8 @@ fgb() {
                     return 1
                 fi
 
-                if "$c_extend_del"; then
-                    if "$is_remote"; then
+                if [[ "$c_extend_del" == true ]]; then
+                    if [[ "$is_remote" == true ]]; then
                         if ! local_branches="$(__fgb_git_branch_list)"; then
                             echo -e "$local_branches" >&2
                             return 1
@@ -158,7 +158,7 @@ fgb() {
                     fi
                 fi
 
-                if "$is_remote"; then
+                if [[ "$is_remote" == true ]]; then
                     branch_name="${branch_name#remotes/*/}"
                     user_prompt=$(__fgb_stdout_unindented "
                         |${col_r_bold}WARNING:${col_reset} \#
@@ -168,7 +168,7 @@ fgb() {
                     # NOTE: Avoid --force here as it's no undoable operation for remote branches
                     if __fgb_confirmation_dialog "$user_prompt"; then
                         git push --delete "$remote_name" "$branch_name" || return $?
-                        if "$c_extend_del"; then
+                        if [[ "$c_extend_del" == true ]]; then
                             if [[ -n "$local_tracking" ]]; then
                                 branch="$c_bracket_loc_open"
                                 branch+="${local_tracking#refs/heads/}"
@@ -182,7 +182,7 @@ fgb() {
                         |${col_r_bold}Delete${col_reset} \#
                         |local branch: \`${col_b_bold}${branch_name}${col_reset}'?
                     ")
-                    if "$c_force" || __fgb_confirmation_dialog "$user_prompt"; then
+                    if [[ "$c_force" == true ]] || __fgb_confirmation_dialog "$user_prompt"; then
                         if ! output="$(git branch -d "$branch_name" 2>&1)"; then
                             local head_branch; head_branch="$(git rev-parse --abbrev-ref HEAD)"
                             if ! grep -q "^error: .* is not fully merged\.$" <<< "$output"; then
@@ -205,7 +205,7 @@ fgb() {
                             fi
                         else
                             echo "$output"
-                            if "$c_extend_del"; then
+                            if [[ "$c_extend_del" == true ]]; then
                                 if [[ -n "$remote_tracking" ]]; then
                                     branch="$c_bracket_rem_open"
                                     branch+="${remote_tracking#refs/remotes/}"
@@ -259,15 +259,8 @@ fgb() {
             done
 
             local -a ref_types=()
-            if "$list_remote_branches"; then
-                ref_types=("remotes")
-            else
-                ref_types=("heads")
-            fi
-
-            if "$list_all_branches"; then
-                ref_types=("heads" "remotes")
-            fi
+            [[ "$list_remote_branches" == true ]] && ref_types=("remotes") || ref_types=("heads")
+            [[ "$list_all_branches" == true ]] && ref_types=("heads" "remotes")
 
             local ref_type ref_name refs
             for ref_type in "${ref_types[@]}"; do
@@ -278,9 +271,7 @@ fgb() {
                 )
                 while read -r ref_name; do
                     if [[ -n "$filter_list" ]]; then
-                        if ! grep -q -E "$ref_name$" <<< "$filter_list"; then
-                            continue
-                        fi
+                        grep -q -E "$ref_name$" <<< "$filter_list" || continue
                     fi
                     git \
                         for-each-ref \
@@ -367,12 +358,12 @@ fgb() {
                 printf \
                     "%-$(( c_branch_width + 13 ))b" \
                     "${bracket_open}${col_y_bold}${branch_name}${col_reset}${bracket_close}"
-                if "$c_show_author"; then
+                if [[ "$c_show_author" == true ]]; then
                     author_name="${c_branch_author_map["$branch"]}"
                     printf \
                         "%${c_spacer}s${col_g}%-${c_author_width}s${col_reset}" " " "$author_name"
                 fi
-                if "$c_show_date"; then
+                if [[ "$c_show_date" == true ]]; then
                     author_date="${c_branch_date_map["$branch"]}"
                     printf "%${c_spacer}s(${col_b}%s${col_reset})" " " "$author_date"
                 fi
@@ -412,11 +403,7 @@ fgb() {
                     echo "$WIDTH_OF_WINDOW $c_total_width $num_spacers" | \
                         awk '{printf("%.0f", ($1 - $2) / $3)}'
                 )"
-                if [ "$c_spacer" -le 0 ]; then
-                    c_spacer=1
-                else
-                    c_spacer=$(( c_spacer < 4 ? c_spacer : 4 ))
-                fi
+                [ "$c_spacer" -le 0 ] && c_spacer=1 || c_spacer=$(( c_spacer < 4 ? c_spacer : 4 ))
             elif [[ $list_type == "worktree" ]]; then
                 # Add 5 to avoid truncating the date column
                 c_total_width="$((
@@ -441,7 +428,7 @@ fgb() {
 
                 # Calculate spacers
                 num_spacers=3
-                if "$c_show_wt_flag"; then
+                if [[ "$c_show_wt_flag" == true ]]; then
                     num_spacers="$(( num_spacers + 1 ))"
                     c_total_width="$(( c_total_width + 2 ))"
                 fi
@@ -449,11 +436,7 @@ fgb() {
                     echo "$WIDTH_OF_WINDOW $c_total_width $num_spacers" | \
                         awk '{printf("%.0f", ($1 - $2) / $3)}'
                 )"
-                if [ "$c_spacer" -le 0 ]; then
-                    c_spacer=1
-                else
-                    c_spacer=$(( c_spacer < 4 ? c_spacer : 4 ))
-                fi
+                [ "$c_spacer" -le 0 ] && c_spacer=1 || c_spacer=$(( c_spacer < 4 ? c_spacer : 4 ))
             fi
         }
 
@@ -478,12 +461,9 @@ fgb() {
             spacer_authour="$(printf "%$(( c_author_width - ${#column_author} + c_spacer ))s" " ")"
 
             header_column_names_row="${column_branch}${spacer_branch}"
-            if "$c_show_author"; then
+            [[ "$c_show_author" == true ]] && \
                 header_column_names_row+="${column_author}${spacer_authour}"
-            fi
-            if "$c_show_date"; then
-                header_column_names_row+="$column_date"
-            fi
+            [[ "$c_show_date" == true ]] && header_column_names_row+="$column_date"
 
             local header="Manage Git Branches:"
             header+=" ctrl-y:jump, ctrl-t:toggle, ${del_key}:delete"
@@ -498,20 +478,15 @@ fgb() {
                     --header '$header' \
                 "
 
-            if [[ "${#@}" -gt 0 ]]; then
-                fzf_cmd+=" --query='$*'"
-            fi
+            [[ $# -gt 0 ]] && fzf_cmd+=" --query='$*'"
 
             local lines; lines="$(__fgb_branch_list | eval "$fzf_cmd" | cut -d' ' -f1)"
 
-            if [[ -z "$lines" ]]; then
-                return
-            fi
+            [[ -z "$lines" ]] && return
 
             local key; key="$(head -1 <<< "$lines")"
 
-            local \
-                is_remote=false
+            local is_remote=false
 
             local branch; branch="$(tail -1 <<< "$lines")"
             # shellcheck disable=SC2053
@@ -545,10 +520,8 @@ fgb() {
                         return 128
                     fi
 
-                    if "$is_remote"; then
-                        # Remove the first segment of the reference name (<upstream>/)
-                        branch="${branch#*/}"
-                    fi
+                    # Remove the first segment of the remote reference name (<upstream>/)
+                    [[ "$is_remote" == true ]] && branch="${branch#*/}"
                     git switch "$branch"
                     ;;
             esac
@@ -677,9 +650,8 @@ fgb() {
                 fi
                 # Remove the first and the last characters (brackets)
                 branch_name="${branch_name:1}"; branch_name="${branch_name%?}"
-                if ! "$is_remote"; then
+                [[ ! "$is_remote" == true ]] && \
                     wt_path="${c_worktree_path_map["refs/heads/${branch_name}"]}"
-                fi
                 if [[ -n "$wt_path" ]]; then
                     # Process a branch with a corresponding worktree
                     is_in_target_wt=false
@@ -691,7 +663,7 @@ fgb() {
                         |${col_y_bold}${wt_path}${col_reset}, \#
                         |for branch '${col_b_bold}${branch_name}${col_reset}'?
                     ")
-                    if "$c_force" || __fgb_confirmation_dialog "$user_prompt"; then
+                    if [[ "$c_force" == true ]] || __fgb_confirmation_dialog "$user_prompt"; then
                         success_message=$(__fgb_stdout_unindented "
                             |${col_g_bold}Deleted${col_reset} worktree: \#
                             |${col_y_bold}${wt_path}${col_reset} \#
@@ -734,14 +706,12 @@ fgb() {
                                     c_force="$force_bak"
                                 fi
                             else
-                                if "$is_in_target_wt"; then
+                                if [[ "$is_in_target_wt" == true ]]; then
                                     cd "$wt_path" || return 1
                                 fi
                             fi
                         else
-                            if "$c_force"; then
-                                echo -e "$success_message"
-                            fi
+                            [[ "$c_force" == true ]] && echo -e "$success_message"
                             user_prompt=$(__fgb_stdout_unindented "
                                 |${col_r_bold}Delete${col_reset} the corresponding \#
                                 |'${col_b_bold}${branch_name}${col_reset}' branch as well?
@@ -755,19 +725,17 @@ fgb() {
                             fi
                         fi
                     else
-                        if "$is_in_target_wt"; then
+                        if [[ "$is_in_target_wt" == true ]]; then
                             cd "$wt_path" || return 1
                         fi
                     fi
                 else
                     # Process a branch that doesn't have a corresponding worktree
                     c_force=true
-                    if "$is_remote"; then
-                        branch_name="${c_bracket_rem_open}${branch_name}"
-                        branch_name+="$c_bracket_rem_close"
+                    if [[ "$is_remote" == true ]]; then
+                        branch_name="${c_bracket_rem_open}${branch_name}${c_bracket_rem_close}"
                     else
-                        branch_name="${c_bracket_loc_open}${branch_name}"
-                        branch_name+="$c_bracket_loc_close"
+                        branch_name="${c_bracket_loc_open}${branch_name}${c_bracket_loc_close}"
                     fi
                     __fgb_git_branch_delete "$branch_name"
                     c_force="$force_bak"
@@ -786,7 +754,9 @@ fgb() {
 
             local \
                 branch_name="$1" \
-                remote_branch
+                remote_branch \
+                wt_path \
+                message
             # shellcheck disable=SC2053
             if [[ "$branch_name" == "$c_bracket_rem_open"*/*"$c_bracket_rem_close" ]]; then
                 # Remove the first and the last characters (brackets)
@@ -800,22 +770,17 @@ fgb() {
                 echo "error: invalid branch name pattern: $branch_name" >&2
                 return 1
             fi
-            local wt_path
             wt_path="$(git worktree list | grep " \[${branch_name}\]$" | cut -d' ' -f1)"
-            local message
             if [[ -n "$wt_path" ]]; then
-                if cd "$wt_path"; then
-                    message=$(__fgb_stdout_unindented "
-                        |${col_g_bold}Jumped${col_reset} to worktree: \#
-                        |${col_y_bold}${wt_path}${col_reset}, \#
-                        |for branch '${col_b_bold}${branch_name}${col_reset}'
-                    ")
-                    echo -e "$message"
-                else
-                    return 1
-                fi
+                cd "$wt_path" || return 1
+                message=$(__fgb_stdout_unindented "
+                    |${col_g_bold}Jumped${col_reset} to worktree: \#
+                    |${col_y_bold}${wt_path}${col_reset}, \#
+                    |for branch '${col_b_bold}${branch_name}${col_reset}'
+                ")
+                echo -e "$message"
             else
-                if "$c_confirmed"; then
+                if [[ "$c_confirmed" == true ]]; then
                     wt_path="${c_bare_repo_path}/${branch_name}"
                 else
                     if [[ -n "$remote_branch" ]]; then
@@ -840,9 +805,8 @@ fgb() {
                     else
                         IFS= read -re -p "$message" -i "$wt_path" wt_path
                     fi
-                    if [[ "$wt_path" != /* ]]; then
-                        wt_path="${c_bare_repo_path}/${wt_path}" # Relative path provided
-                    fi
+                    # If the specified path is not an absolute one...
+                    [[ "$wt_path" != /* ]] && wt_path="${c_bare_repo_path}/${wt_path}"
                     wt_path="$(readlink -m "$wt_path")" # Normalize the path
                 fi
                 if git worktree add "$wt_path" "$branch_name"; then
@@ -882,13 +846,11 @@ fgb() {
                 printf \
                     "%-$(( c_branch_width + 13 ))b" \
                     "${bracket_open}${col_y_bold}${branch_name}${col_reset}${bracket_close}"
-                if "$c_show_wt_path"; then
+                if [[ "$c_show_wt_path" == true ]]; then
                     if [[ -n "${c_worktree_path_map["$branch"]}" ]]; then
                         wt_path="${c_worktree_path_map["$branch"]}"
                         wt_path="$(realpath --relative-to="$c_bare_repo_path" "$wt_path")"
-                        if [[ ! "$wt_path" =~ ^\.\./ ]]; then
-                            wt_path="./$wt_path"
-                        fi
+                        [[ ! "$wt_path" =~ ^\.\./ ]] && wt_path="./$wt_path"
                     else
                         wt_path=" "
                     fi
@@ -897,20 +859,16 @@ fgb() {
                         " " \
                         "$wt_path"
                 fi
-                if "$c_show_wt_flag"; then
-                    if [[ -n "${c_worktree_path_map["$branch"]}" ]]; then
-                        wt_path="+"
-                    else
-                        wt_path=" "
-                    fi
+                if [[ "$c_show_wt_flag" == true ]]; then
+                    [[ -n "${c_worktree_path_map["$branch"]}" ]] && wt_path="+" || wt_path=" "
                     printf "%${c_spacer}s${col_bold}%s${col_reset}" " " "$wt_path"
                 fi
-                if "$c_show_author"; then
+                if [[ "$c_show_author" == true ]]; then
                     author_name="${c_branch_author_map["$branch"]}"
                     printf \
                         "%${c_spacer}s${col_g}%-${c_author_width}s${col_reset}" " " "$author_name"
                 fi
-                if "$c_show_date"; then
+                if [[ "$c_show_date" == true ]]; then
                     author_date="${c_branch_date_map["$branch"]}"
                     printf "%${c_spacer}s(${col_b}%s${col_reset})" " " "$author_date"
                 fi
@@ -925,9 +883,7 @@ fgb() {
             local line branch upstream wt_branch
             c_branches="$(while IFS= read -r line; do
                     branch="${line%%:*}"
-                    if grep -q -E "${branch}$" <<< "$c_worktree_branches"; then
-                        continue
-                    fi
+                    grep -q -E "${branch}$" <<< "$c_worktree_branches" && continue
                     if [[ "$branch" == refs/remotes/* ]]; then
                         while IFS= read -r wt_branch; do
                             upstream="$(
@@ -936,9 +892,7 @@ fgb() {
                                     --format \
                                     '%(upstream)' "$wt_branch"
                             )"
-                            if [[ "$branch" == "$upstream" ]]; then
-                                continue 2
-                            fi
+                            [[ "$branch" == "$upstream" ]] && continue 2
                         done <<< "$c_worktree_branches"
                     fi
                     echo "$line"
@@ -965,12 +919,9 @@ fgb() {
             spacer_author="$(printf "%$(( c_author_width - ${#column_author} + c_spacer ))s" " ")"
 
             header_column_names_row="${column_branch}${spacer_branch}"
-            if "$c_show_author"; then
+            [[ "$c_show_author" == true ]] && \
                 header_column_names_row+="${column_author}${spacer_author}"
-            fi
-            if "$c_show_date"; then
-                header_column_names_row+="$column_date"
-            fi
+            [[ "$c_show_date" == true ]] && header_column_names_row+="$column_date"
 
             local header="Add a Git Worktree:"
             header+=" ctrl-y:jump, ctrl-t:toggle, ${del_key}:delete"
@@ -985,9 +936,7 @@ fgb() {
                     --header '$header' \
                 "
 
-            if [[ "${#@}" -gt 0 ]]; then
-                fzf_cmd+=" --query='$*'"
-            fi
+            [[ $# -gt 0 ]] && fzf_cmd+=" --query='$*'"
 
             local lines; lines="$(
                 __fgb_branch_list | \
@@ -995,9 +944,7 @@ fgb() {
                     cut -d' ' -f1
             )"
 
-            if [[ -z "$lines" ]]; then
-                return
-            fi
+            [[ -z "$lines" ]] && return
 
             local key; key="$(head -1 <<< "$lines")"
 
@@ -1049,24 +996,20 @@ fgb() {
             spacer_branch="$(
                 printf "%$(( c_branch_width + 2 - ${#column_branch} + c_spacer ))s" " "
             )"
-            if "$c_show_wt_path"; then
+            if [[ "$c_show_wt_path" == true ]]; then
                 spacer_wt="$(printf "%$(( c_wt_path_width - ${#column_wt} + c_spacer ))s" " ")"
-            elif "$c_show_wt_flag"; then
+            elif [[ "$c_show_wt_flag" == true ]]; then
                 column_wt="W"
                 spacer_wt="$(printf "%$(( 1 - ${#column_wt} + c_spacer ))s" " ")"
             fi
             spacer_author="$(printf "%$(( c_author_width - ${#column_author} + c_spacer ))s" " ")"
 
             header_column_names_row="${column_branch}${spacer_branch}"
-            if "$c_show_wt_path" || "$c_show_wt_flag"; then
+            [[ "$c_show_wt_path" == true || "$c_show_wt_flag" == true ]] && \
                 header_column_names_row+="${column_wt}${spacer_wt}"
-            fi
-            if "$c_show_author"; then
+            [[ "$c_show_author" == true ]] && \
                 header_column_names_row+="${column_author}${spacer_author}"
-            fi
-            if "$c_show_date"; then
-                header_column_names_row+="$column_date"
-            fi
+            [[ "$c_show_date" == true ]] && header_column_names_row+="$column_date"
 
             local header="Manage Git Worktrees (total):"
             header+=" ctrl-y:jump, ctrl-t:toggle, ${del_key}:delete"
@@ -1081,15 +1024,11 @@ fgb() {
                     --header '$header' \
                 "
 
-            if [[ "${#@}" -gt 0 ]]; then
-                fzf_cmd+=" --query='$*'"
-            fi
+            [[ $# -gt 0 ]] && fzf_cmd+=" --query='$*'"
 
             local lines; lines="$(__fgb_worktree_list | eval "$fzf_cmd" | cut -d' ' -f1)"
 
-            if [[ -z "$lines" ]]; then
-                return
-            fi
+            [[ -z "$lines" ]] && return
 
             local key; key="$(head -1 <<< "$lines")"
 
@@ -1105,9 +1044,7 @@ fgb() {
                     branch="${branch:1}"; branch="${branch%?}"
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
                     local wt_path; wt_path="${c_worktree_path_map["refs/heads/${branch}"]}"
-                    if [[ -n "$wt_path" ]]; then
-                        echo -e "worktree  : ${col_bold}$wt_path${col_reset}"
-                    fi
+                    [[ -n "$wt_path" ]] && echo -e "worktree  : ${col_bold}$wt_path${col_reset}"
                     echo -e "committer : ${col_g}$(
                         git log -1 --pretty=format:"%cn" "$branch"
                     )${col_reset}"
@@ -1143,24 +1080,20 @@ fgb() {
             spacer_branch="$(
                 printf "%$(( c_branch_width + 2 - ${#column_branch} + c_spacer ))s" " "
             )"
-            if "$c_show_wt_path"; then
+            if [[ "$c_show_wt_path" == true ]]; then
                 spacer_wt="$(printf "%$(( c_wt_path_width - ${#column_wt} + c_spacer ))s" " ")"
-            elif "$c_show_wt_flag"; then
+            elif [[ "$c_show_wt_flag" == true ]]; then
                 column_wt="W"
                 spacer_wt="$(printf "%$(( 1 - ${#column_wt} + c_spacer ))s" " ")"
             fi
             spacer_author="$(printf "%$(( c_author_width - ${#column_author} + c_spacer ))s" " ")"
 
             header_column_names_row="${column_branch}${spacer_branch}"
-            if "$c_show_wt_path" || "$c_show_wt_flag"; then
+            [[ "$c_show_wt_path" == true  || "$c_show_wt_flag" == true ]] && \
                 header_column_names_row+="${column_wt}${spacer_wt}"
-            fi
-            if "$c_show_author"; then
+            [[ "$c_show_author" == true ]] && \
                 header_column_names_row+="${column_author}${spacer_author}"
-            fi
-            if "$c_show_date"; then
-                header_column_names_row+="$column_date"
-            fi
+            [[ "$c_show_date" == true ]] && header_column_names_row+="$column_date"
 
             local header="Manage Git Worktrees:"
             header+=" ctrl-y:jump, ctrl-t:toggle, ${del_key}:delete"
@@ -1175,15 +1108,11 @@ fgb() {
                     --header '$header' \
                 "
 
-            if [[ "${#@}" -gt 0 ]]; then
-                fzf_cmd+=" --query='$*'"
-            fi
+            [[ $# -gt 0 ]] && fzf_cmd+=" --query='$*'"
 
             local lines; lines="$(__fgb_worktree_list | eval "$fzf_cmd" | cut -d' ' -f1)"
 
-            if [[ -z "$lines" ]]; then
-                return
-            fi
+            [[ -z "$lines" ]] && return
 
             local key; key="$(head -1 <<< "$lines")"
 
@@ -1215,11 +1144,6 @@ fgb() {
 
         __fgb_worktree_set_vars() {
             # Define worktree related variables
-
-            if ! (git worktree list | grep -q " (bare)$") &>/dev/null; then
-                echo "Not inside a bare Git repository. Exit..." >&2
-                return 128
-            fi
 
             c_bare_repo_path="$(
                 git worktree list | \
@@ -1254,9 +1178,7 @@ fgb() {
                 # Calculate column widths
                 wt_path="${c_worktree_path_map["$branch"]}"
                 wt_path="$(realpath --relative-to="$c_bare_repo_path" "$wt_path")"
-                if [[ ! "$wt_path" =~ ^\.\./ ]]; then
-                    wt_path="./$wt_path"
-                fi
+                [[ ! "$wt_path" =~ ^\.\./ ]] && wt_path="./$wt_path"
                 wt_path_curr_width="${#wt_path}"
                 c_wt_path_width="$((
                         wt_path_curr_width > c_wt_path_width ?
@@ -1315,9 +1237,8 @@ fgb() {
                     done
 
                     # shellcheck disable=SC2076
-                    if [[ " list manage " =~ " $subcommand " ]]; then
+                    [[ " list manage " =~ " $subcommand " ]] && \
                         branch_list_args+=("--filter" "$c_worktree_branches")
-                    fi
 
                     if ! c_branches="$(__fgb_git_branch_list "${branch_list_args[@]}")"; then
                         echo -e "$c_branches" >&2
