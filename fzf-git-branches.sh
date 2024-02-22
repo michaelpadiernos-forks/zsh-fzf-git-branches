@@ -85,6 +85,8 @@ fgb() {
             local \
                 branch \
                 branch_name \
+                show_all_bak="$c_branch_show_all" \
+                show_remote_bak="$c_branch_show_remote" \
                 branches_to_delete="$1" \
                 is_remote \
                 local_branches \
@@ -133,10 +135,12 @@ fgb() {
 
                 if [[ "$c_extend_del" == true ]]; then
                     if [[ "$is_remote" == true ]]; then
+                        c_branch_show_all=false; c_branch_show_remote=false
                         if ! local_branches="$(__fgb_git_branch_list)"; then
                             echo -e "$local_branches" >&2
                             return 1
                         fi
+                        c_branch_show_all="$show_all_bak"; c_branch_show_remote="$show_remote_bak"
                         remote_tracking="refs/remotes/${branch_name}"
                         while IFS= read -r branch; do
                             upstream="$(
@@ -223,50 +227,17 @@ fgb() {
         __fgb_git_branch_list() {
             # List branches in a git repository
 
-            local sort_order="-committerdate"
-            local filter_list=""
-            local list_remote_branches=false
-            local list_all_branches=false
-
-            while [ $# -gt 0 ]; do
-                case "$1" in
-                    -s | --sort)
-                        shift
-                        sort_order="$1"
-                        ;;
-                    --sort=*)
-                        sort_order="${1#*=}"
-                        ;;
-                    --filter)
-                        shift
-                        filter_list="$1"
-                        ;;
-                    --filter=*)
-                        filter_list="${1#*=}"
-                        ;;
-                    -r | --remotes)
-                        list_remote_branches=true
-                        ;;
-                    -a | --all)
-                        list_all_branches=true
-                        ;;
-                    *)
-                        echo "$0: Invalid argument: $1" >&2
-                        return 1
-                        ;;
-                esac
-                shift
-            done
+            local filter_list="${1-}"
 
             local -a ref_types=()
-            [[ "$list_remote_branches" == true ]] && ref_types=("remotes") || ref_types=("heads")
-            [[ "$list_all_branches" == true ]] && ref_types=("heads" "remotes")
+            [[ "$c_branch_show_remote" == true ]] && ref_types=("remotes") || ref_types=("heads")
+            [[ "$c_branch_show_all" == true ]] && ref_types=("heads" "remotes")
 
             local ref_type ref_name refs
             for ref_type in "${ref_types[@]}"; do
                 refs=$(git for-each-ref \
                         --format='%(refname)' \
-                        --sort="$sort_order" \
+                        --sort="$c_branch_sort_order" \
                         refs/"$ref_type"
                 )
                 while read -r ref_name; do
@@ -541,19 +512,21 @@ fgb() {
                         return 128
                     fi
 
-                    local -a branch_list_args=() fzf_query=()
+                    local -a fzf_query=()
                     while [ $# -gt 0 ]; do
                         case "$1" in
                             -s | --sort)
-                                branch_list_args+=("$1")
                                 shift
-                                branch_list_args+=("$1")
+                                c_branch_sort_order="$1"
                                 ;;
                             --sort=*)
-                                branch_list_args+=("$1")
+                                c_branch_sort_order="${1#*=}"
                                 ;;
-                            -r | --remotes | -a | --all)
-                                branch_list_args+=("$1")
+                            -r | --remotes)
+                                c_branch_show_remote=true
+                                ;;
+                            -a | --all)
+                                c_branch_show_all=true
                                 ;;
                             -f | --force)
                                 if [[ "$subcommand" == "list" ]]; then
@@ -584,7 +557,7 @@ fgb() {
                         shift
                     done
 
-                    c_branches="$(__fgb_git_branch_list "${branch_list_args[@]}")"
+                    c_branches="$(__fgb_git_branch_list)"
                     __fgb_branch_set_vars "$c_branches"
                     __fgb_set_spacer_var branch
                     case $subcommand in
@@ -1161,7 +1134,12 @@ fgb() {
                 rev <<< "$wt_list" | cut -d' ' -f1 | rev | sed 's|^.\(.*\).$|\1|;s|^|refs/heads/|'
             )"
 
-            __fgb_branch_set_vars "$(__fgb_git_branch_list --filter "$c_worktree_branches")"
+            local \
+                show_all_bak="$c_branch_show_all" \
+                show_remote_bak="$c_branch_show_remote"
+            c_branch_show_all=false; c_branch_show_remote=false
+            __fgb_branch_set_vars "$(__fgb_git_branch_list "$c_worktree_branches")"
+            c_branch_show_all="$show_all_bak"; c_branch_show_remote="$show_remote_bak"
 
             local \
                 branch \
@@ -1203,7 +1181,7 @@ fgb() {
 
                     __fgb_worktree_set_vars || return $?
 
-                    local -a fzf_query=() branch_list_args=()
+                    local -a fzf_query=()
                     while [ $# -gt 0 ]; do
                         case "$1" in
                             -r | --remotes | -a | --all | -c | --confirm)
@@ -1214,16 +1192,22 @@ fgb() {
                                     return 1
                                 fi
                                 case "$1" in
-                                    -r | --remotes | -a | --all) branch_list_args+=("$1") ;;
+                                    -r | --remotes)
+                                        c_branch_show_remote=true
+                                        ;;
+                                    -a | --all)
+                                        c_branch_show_all=true
+                                        ;;
                                     -c | --confirm) c_confirmed=true ;;
                                 esac
                                 ;;
                             -s | --sort)
-                                branch_list_args+=("$1")
                                 shift
-                                branch_list_args+=("$1")
+                                c_branch_sort_order="$1"
                                 ;;
-                            --sort=*) branch_list_args+=("$1") ;;
+                            --sort=*)
+                                c_branch_sort_order="${1#*=}"
+                                ;;
                             -f | --force) c_force=true ;;
                             -h | --help) echo "${usage_message[worktree_$subcommand]}" >&2 ;;
                             --* | -*)
@@ -1236,11 +1220,11 @@ fgb() {
                         shift
                     done
 
+                    local filter_list
                     # shellcheck disable=SC2076
-                    [[ " list manage " =~ " $subcommand " ]] && \
-                        branch_list_args+=("--filter" "$c_worktree_branches")
+                    [[ " list manage " =~ " $subcommand " ]] && filter_list="$c_worktree_branches"
 
-                    if ! c_branches="$(__fgb_git_branch_list "${branch_list_args[@]}")"; then
+                    if ! c_branches="$(__fgb_git_branch_list "$filter_list")"; then
                         echo -e "$c_branches" >&2
                         return 1
                     fi
@@ -1285,6 +1269,7 @@ fgb() {
             c_branch_width=0 \
             c_author_width=0 \
             c_total_width=0 \
+            c_date_width=17 # Example: (99 minutes ago) \
             c_spacer=1 \
             c_worktree_branches="" \
             c_wt_path_width=0 \
@@ -1299,7 +1284,9 @@ fgb() {
             c_force=false \
             c_extend_del=false \
             c_confirmed=false \
-            c_date_width=17 # Example: (99 minutes ago)
+            c_branch_sort_order="-committerdate" \
+            c_branch_show_all=false \
+            c_branch_show_remote=false
 
         local -A \
             c_branch_author_map \
