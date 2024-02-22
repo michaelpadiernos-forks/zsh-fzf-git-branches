@@ -85,8 +85,6 @@ fgb() {
             local \
                 branch \
                 branch_name \
-                show_all_bak="$c_branch_show_all" \
-                show_remote_bak="$c_branch_show_remote" \
                 branches_to_delete="$1" \
                 is_remote \
                 local_branches \
@@ -135,12 +133,10 @@ fgb() {
 
                 if [[ "$c_extend_del" == true ]]; then
                     if [[ "$is_remote" == true ]]; then
-                        c_branch_show_all=false; c_branch_show_remote=false
-                        if ! local_branches="$(__fgb_git_branch_list)"; then
+                        if ! local_branches="$(__fgb_git_branch_list "local")"; then
                             echo -e "$local_branches" >&2
                             return 1
                         fi
-                        c_branch_show_all="$show_all_bak"; c_branch_show_remote="$show_remote_bak"
                         remote_tracking="refs/remotes/${branch_name}"
                         while IFS= read -r branch; do
                             upstream="$(
@@ -227,11 +223,22 @@ fgb() {
         __fgb_git_branch_list() {
             # List branches in a git repository
 
-            local filter_list="${1-}"
+            # shellcheck disable=SC2076
+            if [[ $# -lt 1  ]]; then
+                echo "$0 error: missing argument: branch_type (local|remote|all)" >&2
+                return 1
+            elif [[ ! " local remote all " =~ " $1 " ]]; then
+                echo "$0 error: invalid argument: \`$1'" >&2
+                return 1
+            fi
+
+            local branch_type="$1"
+            local filter_list="${2-}"
 
             local -a ref_types=()
-            [[ "$c_branch_show_remote" == true ]] && ref_types=("remotes") || ref_types=("heads")
-            [[ "$c_branch_show_all" == true ]] && ref_types=("heads" "remotes")
+            [[ "$branch_type" == "local" ]] && ref_types=("heads")
+            [[ "$branch_type" == "remote" ]] && ref_types=("remotes")
+            [[ "$branch_type" == "all" ]] && ref_types=("heads" "remotes")
 
             local ref_type ref_name refs
             for ref_type in "${ref_types[@]}"; do
@@ -513,6 +520,7 @@ fgb() {
                     fi
 
                     local -a fzf_query=()
+                    local branch_show_remote=false branch_show_all=false
                     while [ $# -gt 0 ]; do
                         case "$1" in
                             -s | --sort)
@@ -523,10 +531,10 @@ fgb() {
                                 c_branch_sort_order="${1#*=}"
                                 ;;
                             -r | --remotes)
-                                c_branch_show_remote=true
+                                branch_show_remote=true
                                 ;;
                             -a | --all)
-                                c_branch_show_all=true
+                                branch_show_all=true
                                 ;;
                             -f | --force)
                                 if [[ "$subcommand" == "list" ]]; then
@@ -557,7 +565,13 @@ fgb() {
                         shift
                     done
 
-                    c_branches="$(__fgb_git_branch_list)"
+                    local branch_type
+                    [[ "$branch_show_remote" == true ]] && \
+                        branch_type="remote" || \
+                        branch_type="local"
+                    [[ "$branch_show_all" == true ]] && branch_type="all"
+
+                    c_branches="$(__fgb_git_branch_list "$branch_type")"
                     __fgb_branch_set_vars "$c_branches"
                     __fgb_set_spacer_var branch
                     case $subcommand in
@@ -1134,12 +1148,7 @@ fgb() {
                 rev <<< "$wt_list" | cut -d' ' -f1 | rev | sed 's|^.\(.*\).$|\1|;s|^|refs/heads/|'
             )"
 
-            local \
-                show_all_bak="$c_branch_show_all" \
-                show_remote_bak="$c_branch_show_remote"
-            c_branch_show_all=false; c_branch_show_remote=false
-            __fgb_branch_set_vars "$(__fgb_git_branch_list "$c_worktree_branches")"
-            c_branch_show_all="$show_all_bak"; c_branch_show_remote="$show_remote_bak"
+            __fgb_branch_set_vars "$(__fgb_git_branch_list "local" "$c_worktree_branches")"
 
             local \
                 branch \
@@ -1182,6 +1191,7 @@ fgb() {
                     __fgb_worktree_set_vars || return $?
 
                     local -a fzf_query=()
+                    local branch_show_remote=false branch_show_all=false
                     while [ $# -gt 0 ]; do
                         case "$1" in
                             -r | --remotes | -a | --all | -c | --confirm)
@@ -1193,10 +1203,10 @@ fgb() {
                                 fi
                                 case "$1" in
                                     -r | --remotes)
-                                        c_branch_show_remote=true
+                                        branch_show_remote=true
                                         ;;
                                     -a | --all)
-                                        c_branch_show_all=true
+                                        branch_show_all=true
                                         ;;
                                     -c | --confirm) c_confirmed=true ;;
                                 esac
@@ -1220,11 +1230,17 @@ fgb() {
                         shift
                     done
 
+                    local branch_type
+                    [[ "$branch_show_remote" == true ]] && \
+                        branch_type="remote" || \
+                        branch_type="local"
+                    [[ "$branch_show_all" == true ]] && branch_type="all"
+
                     local filter_list
                     # shellcheck disable=SC2076
                     [[ " list manage " =~ " $subcommand " ]] && filter_list="$c_worktree_branches"
 
-                    if ! c_branches="$(__fgb_git_branch_list "$filter_list")"; then
+                    if ! c_branches="$(__fgb_git_branch_list "$branch_type" "$filter_list")"; then
                         echo -e "$c_branches" >&2
                         return 1
                     fi
@@ -1284,9 +1300,7 @@ fgb() {
             c_force=false \
             c_extend_del=false \
             c_confirmed=false \
-            c_branch_sort_order="-committerdate" \
-            c_branch_show_all=false \
-            c_branch_show_remote=false
+            c_branch_sort_order="-committerdate"
 
         local -A \
             c_branch_author_map \
