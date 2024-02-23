@@ -573,7 +573,7 @@ fgb() {
 
                     c_branches="$(__fgb_git_branch_list "$branch_type")"
                     __fgb_branch_set_vars "$c_branches"
-                    __fgb_set_spacer_var branch
+                    __fgb_set_spacer_var "branch"
                     case $subcommand in
                         list) __fgb_branch_list ;;
                         manage) __fgb_branch_manage "${fzf_query[@]}" ;;
@@ -812,7 +812,7 @@ fgb() {
         __fgb_worktree_list() {
             # List worktrees in a git repository
 
-            __fgb_set_spacer_var worktree
+            __fgb_set_spacer_var "worktree"
 
             local branch wt_path author_name author_date bracket_open bracket_close
             while IFS= read -r branch; do
@@ -886,7 +886,7 @@ fgb() {
             done <<< "$c_branches")"
 
             __fgb_branch_set_vars "$c_branches"
-            __fgb_set_spacer_var worktree
+            __fgb_set_spacer_var "worktree"
 
             local \
                 del_key="ctrl-d" \
@@ -964,7 +964,7 @@ fgb() {
             # Manage Git worktrees
 
             __fgb_branch_set_vars "$c_branches"
-            __fgb_set_spacer_var worktree
+            __fgb_set_spacer_var "worktree"
 
             local \
                 del_key="ctrl-d" \
@@ -1049,7 +1049,7 @@ fgb() {
         __fgb_worktree_manage() {
             # Manage Git worktrees
 
-            __fgb_set_spacer_var worktree
+            __fgb_set_spacer_var "worktree"
 
             local \
                 del_key="ctrl-d" \
