@@ -3,7 +3,7 @@
 command -v fzf >/dev/null 2>&1 || return
 
 fgb() {
-    local VERSION="0.6.2"
+    local VERSION="0.6.3"
 
     # Set the command to use for fzf
     local fzf_version
@@ -16,7 +16,6 @@ fgb() {
             --border=top \
             --cycle \
             --multi \
-            --no-sort \
             --pointer='' \
             --preview 'git log --oneline --decorate --graph --color=always {1}' \
         "
