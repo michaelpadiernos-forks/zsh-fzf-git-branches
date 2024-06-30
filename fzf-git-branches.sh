@@ -1322,9 +1322,9 @@ fgb() {
             |Usage: fgb <command> [<args>]
             |
             |Commands:
-            |  branch    Manage branches in a git repository
+            |  branch    Manage branches in a Git repository
             |
-            |  worktree  Manage worktrees in a git repository
+            |  worktree  Manage worktrees in a Git repository
             |
             |Options:
             |  -v, --version
@@ -1338,9 +1338,9 @@ fgb() {
             |Usage: fgb branch <subcommand> [<args>]
             |
             |Subcommands:
-            |  list    List branches in a git repository
+            |  list    List branches in a Git repository and exit
             |
-            |  manage  Switch to existing branches in the git repository or delete them
+            |  manage  Switch to existing branches in the Git repository or delete them
             |
             |Options:
             |  -h, --help
@@ -1350,7 +1350,7 @@ fgb() {
             ["branch_list"]="$(__fgb_stdout_unindented "
             |Usage: fgb branch list [<args>]
             |
-            |List branches in a git repository
+            |List branches in a Git repository and exit
             |
             |Options:
             |  -s, --sort=<sort>
@@ -1370,7 +1370,7 @@ fgb() {
             ["branch_manage"]="$(__fgb_stdout_unindented "
             |Usage: fgb branch manage [<args>] [<query>]
             |
-            |Switch to existing branches in the git repository or delete them
+            |Switch to existing branches in the Git repository or delete them
             |
             |Query:
             |  <query>  Query to filter branches by using fzf
@@ -1387,7 +1387,7 @@ fgb() {
             |          List all branches
             |
             |  -f, --force
-            |          Suppress confirmation dialog for non-dangerous operations
+            |          Suppress confirmation dialog for non-destructive operations
             |
             |  -h, --help
             |          Show help message
@@ -1397,13 +1397,13 @@ fgb() {
             |Usage: fgb worktree <subcommand> [<args>]
             |
             |Subcommands:
-            |  list    List all worktrees in a bare git repository
+            |  list    List all worktrees in a bare Git repository and exit
             |
-            |  manage  Switch to existing worktrees in the baregit repository or delete them
+            |  manage  Switch to existing worktrees in the bare Git repository or delete them
             |
-            |  add     Add a new worktree based on a selected git branch
+            |  add     Add a new worktree based on a selected Git branch
             |
-            |  total   Add a new one, switch to an existing worktree in the bare git repository,
+            |  total   Add a new one, switch to an existing worktree in the bare Git repository,
             |          or delete them, optionally with corresponding branches
             |
             |Options:
@@ -1414,7 +1414,7 @@ fgb() {
             ["worktree_list"]="$(__fgb_stdout_unindented "
             |Usage: fgb worktree list [<args>]
             |
-            |List all worktrees in a bare git repository
+            |List all worktrees in a bare Git repository and exit
             |
             |Options:
             |  -s, --sort=<sort>
@@ -1428,7 +1428,7 @@ fgb() {
             ["worktree_manage"]="$(__fgb_stdout_unindented "
             |Usage: fgb worktree manage [<args>] [<query>]
             |
-            |Switch to existing worktrees in the bare git repository or delete them
+            |Switch to existing worktrees in the bare Git repository or delete them
             |
             |Query:
             |  <query>  Query to filter branches by using fzf
@@ -1439,7 +1439,7 @@ fgb() {
             |            -committerdate (default)
             |
             |  -f, --force
-            |          Suppress confirmation dialog for non-dangerous operations
+            |          Suppress confirmation dialog for non-destructive operations
             |
             |  -h, --help
             |          Show help message
@@ -1448,7 +1448,7 @@ fgb() {
             ["worktree_add"]="$(__fgb_stdout_unindented "
             |Usage: fgb worktree add [<args>] [<query>]
             |
-            |Add a new worktree based on a selected git branch
+            |Add a new worktree based on a selected Git branch
             |
             |Query:
             |  <query>  Query to filter branches by using fzf
@@ -1468,7 +1468,7 @@ fgb() {
             |          Automatic confirmation of the directory name for the new worktree
             |
             |  -f, --force
-            |          Suppress confirmation dialog for non-dangerous operations
+            |          Suppress confirmation dialog for non-destructive operations
             |
             |  -h, --help
             |          Show help message
@@ -1477,7 +1477,7 @@ fgb() {
             ["worktree_total"]="$(__fgb_stdout_unindented "
             |Usage: fgb worktree total [<args>] [<query>]
             |
-            |Add a new one, switch to an existing worktree in the bare git repository, \#
+            |Add a new one, switch to an existing worktree in the bare Git repository, \#
             |or delete them, optionally with corresponding branches
             |
             |Query:
@@ -1498,7 +1498,7 @@ fgb() {
             |          Automatic confirmation of the directory name for the new worktree
             |
             |  -f, --force
-            |          Suppress confirmation dialog for non-dangerous operations
+            |          Suppress confirmation dialog for non-destructive operations
             |
             |  -h, --help
             |          Show help message
