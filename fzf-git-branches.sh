@@ -1507,7 +1507,7 @@ fgb() {
 
         # Define command and adjust arguments
         local fgb_command="${1:-}"
-        shift
+        [ $# -gt 0 ] && shift
         local fgb_subcommand="${1:-}"
 
         local WIDTH_OF_WINDOW; WIDTH_OF_WINDOW="$(tput cols)"
