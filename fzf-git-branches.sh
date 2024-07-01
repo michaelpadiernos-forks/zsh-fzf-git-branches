@@ -835,7 +835,8 @@ fgb() {
                 if [[ "$c_show_wt_path" == true ]]; then
                     if [[ -n "${c_worktree_path_map["$branch"]}" ]]; then
                         wt_path="${c_worktree_path_map["$branch"]}"
-                        wt_path="$(realpath --relative-to="$c_bare_repo_path" "$wt_path")"
+                        [ "$wt_path" != "" ] && \
+                            wt_path="$(realpath --relative-to="$c_bare_repo_path" "$wt_path")"
                         [[ ! "$wt_path" =~ ^\.\./ ]] && wt_path="./$wt_path"
                     else
                         wt_path=" "
@@ -1163,7 +1164,8 @@ fgb() {
                 )"
                 # Calculate column widths
                 wt_path="${c_worktree_path_map["$branch"]}"
-                wt_path="$(realpath --relative-to="$c_bare_repo_path" "$wt_path")"
+                [ "$wt_path" != "" ] && \
+                    wt_path="$(realpath --relative-to="$c_bare_repo_path" "$wt_path")"
                 [[ ! "$wt_path" =~ ^\.\./ ]] && wt_path="./$wt_path"
                 wt_path_curr_width="${#wt_path}"
                 c_wt_path_width="$((
