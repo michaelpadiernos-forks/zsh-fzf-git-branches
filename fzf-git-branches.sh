@@ -242,7 +242,7 @@ fgb() {
             local ref_type refs
             for ref_type in "${ref_types[@]}"; do
                 refs=$(git for-each-ref \
-                        --format='%(refname):%(committername):%(committerdate:relative)' \
+                        --format='%(refname):%(committername)|%(committerdate:relative)' \
                         --sort="$c_branch_sort_order" \
                         refs/"$ref_type"
                 )
@@ -279,13 +279,13 @@ fgb() {
                 # Remove first two segments of the reference name
                 branch_name="${branch_name#*/}"
                 branch_name="${branch_name#*/}"
-                # Remove the shortest prefix starting with ':'
+                # Remove the shortest prefix ending with ':'
                 author_name="${line#*:}"
-                # Remove the shortest suffix ending with ':'
-                author_name="${author_name%:*}"
+                # Remove the shortest suffix starting with '|'
+                author_name="${author_name%|*}"
                 c_branch_author_map["$branch"]="$author_name"
-                # Remove the longest prefix ending with ':'
-                c_branch_date_map["$branch"]="${line##*:}"
+                # Remove the longest prefix ending with '|'
+                c_branch_date_map["$branch"]="${line##*|}"
                 date_curr_width="${#c_branch_date_map["$branch"]}"
                 c_date_width="$((
                     date_curr_width > c_date_width ?
