@@ -328,16 +328,14 @@ fgb() {
                 branch="${branch%%:*}"
                 branch_name="$branch"
                 if [[ "$branch" == refs/heads/* ]]; then
-                    # Remove first two segments of the reference name
-                    branch_name="${branch_name#*/}"; branch_name="${branch_name#*/}"
                     # Define the bracket characters
                     bracket_open="$c_bracket_loc_open" bracket_close="$c_bracket_loc_close"
                 elif [[ "$branch" == refs/remotes/* ]]; then
-                    # Remove first two segments of the reference name
-                    branch_name="${branch_name#*/}"; branch_name="${branch_name#*/}"
                     # Define the bracket characters
                     bracket_open="$c_bracket_rem_open" bracket_close="$c_bracket_rem_close"
                 fi
+                # Remove first two segments of the reference name
+                branch_name="${branch_name#*/}"; branch_name="${branch_name#*/}"
                 # Adjust the branch name column width based on the number of color code characters
                 printf \
                     "%-$(( c_branch_width + 13 ))b" \
