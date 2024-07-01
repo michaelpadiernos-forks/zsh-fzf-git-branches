@@ -239,22 +239,18 @@ fgb() {
             [[ "$branch_type" == "remote" ]] && ref_types=("remotes")
             [[ "$branch_type" == "all" ]] && ref_types=("heads" "remotes")
 
-            local ref_type ref_name refs
+            local ref_type refs
             for ref_type in "${ref_types[@]}"; do
                 refs=$(git for-each-ref \
-                        --format='%(refname)' \
+                        --format='%(refname):%(committername):%(committerdate:relative)' \
                         --sort="$c_branch_sort_order" \
                         refs/"$ref_type"
                 )
-                while read -r ref_name; do
-                    if [[ -n "$filter_list" ]]; then
-                        grep -q -E "$ref_name$" <<< "$filter_list" || continue
-                    fi
-                    git \
-                        for-each-ref \
-                        --format='%(refname):%(committername):%(committerdate:relative)' \
-                        "$ref_name"
-                done <<< "$refs"
+                if [[ -n "$filter_list" ]]; then
+                    echo "$refs" | grep "$(sed 's/^/^/; s/$/:/' <<< "$filter_list")"
+                else
+                    echo "$refs"
+                fi
             done
         }
 
