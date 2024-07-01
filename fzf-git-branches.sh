@@ -274,7 +274,8 @@ fgb() {
                 branch_name \
                 branch_curr_width \
                 author_name \
-                author_curr_width
+                author_curr_width \
+                date_curr_width
             while IFS= read -r line; do
                 # Remove the longest suffix starting with ':'
                 branch="${line%%:*}"
@@ -289,6 +290,12 @@ fgb() {
                 c_branch_author_map["$branch"]="$author_name"
                 # Remove the longest prefix ending with ':'
                 c_branch_date_map["$branch"]="${line##*:}"
+                date_curr_width="${#c_branch_date_map["$branch"]}"
+                c_date_width="$((
+                    date_curr_width > c_date_width ?
+                    date_curr_width :
+                    c_date_width
+                ))"
                 # Calculate column widths
                 branch_curr_width="${#branch_name}"
                 c_branch_width="$((
@@ -1286,7 +1293,7 @@ fgb() {
             c_branch_width=0 \
             c_author_width=0 \
             c_total_width=0 \
-            c_date_width=17 # Example: (99 minutes ago) \
+            c_date_width=0 \
             c_spacer=1 \
             c_worktree_branches="" \
             c_wt_path_width=0 \
