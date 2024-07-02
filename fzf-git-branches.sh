@@ -243,8 +243,8 @@ fgb() {
             for ref_type in "${ref_types[@]}"; do
                 refs=$(git for-each-ref \
                         --format="$(
-                            printf '%%(refname)%b%%(committername)%b%%(%s)' \
-                                '\x1f' '\x1f' "$c_date_format"
+                            printf '%%(refname)%b%%(%s)%b%%(%s)' \
+                                '\x1f' "$c_author_format" '\x1f' "$c_date_format"
                         )" \
                         --sort="$c_branch_sort_order" \
                         refs/"$ref_type"
@@ -533,6 +533,13 @@ fgb() {
                                 ;;
                             --date-format=*)
                                 c_date_format="${1#*=}"
+                                ;;
+                            -u | --author-format)
+                                shift
+                                c_author_format="$1"
+                                ;;
+                            --author-format=*)
+                                c_author_format="${1#*=}"
                                 ;;
                             -r | --remotes)
                                 branch_show_remote=true
@@ -1229,6 +1236,13 @@ fgb() {
                             --date-format=*)
                                 c_date_format="${1#*=}"
                                 ;;
+                            -u | --author-format)
+                                shift
+                                c_author_format="$1"
+                                ;;
+                            --author-format=*)
+                                c_author_format="${1#*=}"
+                                ;;
                             -f | --force) c_force=true ;;
                             -h | --help) echo "${usage_message[worktree_$subcommand]}" >&2 ;;
                             --* | -*)
@@ -1314,7 +1328,8 @@ fgb() {
             c_extend_del=false \
             c_confirmed=false \
             c_branch_sort_order="-committerdate" \
-            c_date_format="committerdate:relative"
+            c_date_format="committerdate:relative" \
+            c_author_format="committername"
 
         local -A \
             c_branch_author_map \
@@ -1334,6 +1349,7 @@ fgb() {
 
         local default_sort_order="-committerdate"
         local default_date_format="committerdate:relative"
+        local default_author_format="committername"
 
         local -A usage_message=(
             ["fgb"]="$(__fgb_stdout_unindented "
@@ -1376,8 +1392,12 @@ fgb() {
             |            \"$default_sort_order\" (default)
             |
             |  -d, --date-format=<date>
-            |          Format for 'committerdate' string:
+            |          Format for 'date' string:
             |            \"$default_date_format\" (default)
+            |
+            |  -u, --author-format=<author>
+            |          Format for 'author' string:
+            |            \"$default_author_format\" (default)
             |
             |  -r, --remotes
             |          List remote branches
@@ -1403,8 +1423,12 @@ fgb() {
             |            \"$default_sort_order\" (default)
             |
             |  -d, --date-format=<date>
-            |          Format for 'committerdate' string:
+            |          Format for 'date' string:
             |            \"$default_date_format\" (default)
+            |
+            |  -u, --author-format=<author>
+            |          Format for 'author' string:
+            |            \"$default_author_format\" (default)
             |
             |  -r, --remotes
             |          List remote branches
@@ -1448,8 +1472,12 @@ fgb() {
             |            \"$default_sort_order\" (default)
             |
             |  -d, --date-format=<date>
-            |          Format for 'committerdate' string:
+            |          Format for 'date' string:
             |            \"$default_date_format\" (default)
+            |
+            |  -u, --author-format=<author>
+            |          Format for 'author' string:
+            |            \"$default_author_format\" (default)
             |
             |  -h, --help
             |          Show help message
@@ -1469,8 +1497,12 @@ fgb() {
             |            \"$default_sort_order\" (default)
             |
             |  -d, --date-format=<date>
-            |          Format for 'committerdate' string:
+            |          Format for 'date' string:
             |            \"$default_date_format\" (default)
+            |
+            |  -u, --author-format=<author>
+            |          Format for 'author' string:
+            |            \"$default_author_format\" (default)
             |
             |  -f, --force
             |          Suppress confirmation dialog for non-destructive operations
@@ -1493,8 +1525,12 @@ fgb() {
             |            \"$default_sort_order\" (default)
             |
             |  -d, --date-format=<date>
-            |          Format for 'committerdate' string:
+            |          Format for 'date' string:
             |            \"$default_date_format\" (default)
+            |
+            |  -u, --author-format=<author>
+            |          Format for 'author' string:
+            |            \"$default_author_format\" (default)
             |
             |  -r, --remotes
             |          List remote branches
@@ -1527,8 +1563,12 @@ fgb() {
             |            \"$default_sort_order\" (default)
             |
             |  -d, --date-format=<date>
-            |          Format for 'committerdate' string:
+            |          Format for 'date' string:
             |            \"$default_date_format\" (default)
+            |
+            |  -u, --author-format=<author>
+            |          Format for 'author' string:
+            |            \"$default_author_format\" (default)
             |
             |  -r, --remotes
             |          List remote branches
