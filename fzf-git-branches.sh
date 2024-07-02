@@ -270,13 +270,19 @@ fgb() {
                 author_curr_width \
                 date_curr_width
             while IFS= read -r line; do
-                IFS=$'\x1f' read -r branch author_name author_date <<< "$line"
+                # Remove the longest suffix starting with '\x1f'
+                branch="${line%%$'\x1f'*}"
                 branch_name="$branch"
                 # Remove first two segments of the reference name
                 branch_name="${branch_name#*/}"
                 branch_name="${branch_name#*/}"
+                # Remove the shortest prefix ending with '\x1f'
+                author_name="${line#*$'\x1f'}"
+                # Remove the shortest suffix starting with '\x1f'
+                author_name="${author_name%$'\x1f'*}"
                 c_branch_author_map["$branch"]="$author_name"
-                c_branch_date_map["$branch"]="$author_date"
+                # Remove the longest prefix ending with '\x1f'
+                c_branch_date_map["$branch"]="${line##*$'\x1f'}"
                 date_curr_width="${#c_branch_date_map["$branch"]}"
                 c_date_width="$((
                     date_curr_width > c_date_width ?
