@@ -242,7 +242,7 @@ fgb() {
             local ref_type refs
             for ref_type in "${ref_types[@]}"; do
                 refs=$(git for-each-ref \
-                        --format='%(refname):%(committername)|%(committerdate:relative)' \
+                        --format="%(refname):%(committername)|%($c_date_format)" \
                         --sort="$c_branch_sort_order" \
                         refs/"$ref_type"
                 )
@@ -529,6 +529,13 @@ fgb() {
                                 ;;
                             --sort=*)
                                 c_branch_sort_order="${1#*=}"
+                                ;;
+                            -d | --date-format)
+                                shift
+                                c_date_format="$1"
+                                ;;
+                            --date-format=*)
+                                c_date_format="${1#*=}"
                                 ;;
                             -r | --remotes)
                                 branch_show_remote=true
@@ -1190,8 +1197,6 @@ fgb() {
                         return 128
                     fi
 
-                    __fgb_worktree_set_vars || return $?
-
                     local -a fzf_query=()
                     local branch_show_remote=false branch_show_all=false
                     while [ $# -gt 0 ]; do
@@ -1220,6 +1225,13 @@ fgb() {
                             --sort=*)
                                 c_branch_sort_order="${1#*=}"
                                 ;;
+                            -d | --date-format)
+                                shift
+                                c_date_format="$1"
+                                ;;
+                            --date-format=*)
+                                c_date_format="${1#*=}"
+                                ;;
                             -f | --force) c_force=true ;;
                             -h | --help) echo "${usage_message[worktree_$subcommand]}" >&2 ;;
                             --* | -*)
@@ -1231,6 +1243,8 @@ fgb() {
                         esac
                         shift
                     done
+
+                    __fgb_worktree_set_vars || return $?
 
                     local branch_type
                     [[ "$branch_show_remote" == true ]] && \
@@ -1302,7 +1316,8 @@ fgb() {
             c_force=false \
             c_extend_del=false \
             c_confirmed=false \
-            c_branch_sort_order="-committerdate"
+            c_branch_sort_order="-committerdate" \
+            c_date_format="committerdate:relative"
 
         local -A \
             c_branch_author_map \
@@ -1319,6 +1334,9 @@ fgb() {
             |This is free software; you are free to change and redistribute it.
             |There is NO WARRANTY, to the extent permitted by law.
         ")
+
+        local default_sort_order="-committerdate"
+        local default_date_format="committerdate:relative"
 
         local -A usage_message=(
             ["fgb"]="$(__fgb_stdout_unindented "
@@ -1358,7 +1376,11 @@ fgb() {
             |Options:
             |  -s, --sort=<sort>
             |          Sort branches by <sort>:
-            |            refname (default)
+            |            \"$default_sort_order\" (default)
+            |
+            |  -d, --date-format=<date>
+            |          Format for 'committerdate' string:
+            |            \"$default_date_format\" (default)
             |
             |  -r, --remotes
             |          List remote branches
@@ -1381,7 +1403,11 @@ fgb() {
             |Options:
             |  -s, --sort=<sort>
             |          Sort branches by <sort>:
-            |            -committerdate (default)
+            |            \"$default_sort_order\" (default)
+            |
+            |  -d, --date-format=<date>
+            |          Format for 'committerdate' string:
+            |            \"$default_date_format\" (default)
             |
             |  -r, --remotes
             |          List remote branches
@@ -1421,8 +1447,12 @@ fgb() {
             |
             |Options:
             |  -s, --sort=<sort>
-            |          Sort worktrees by <sort>:
-            |            -committerdate (default)
+            |          Sort branches by <sort>:
+            |            \"$default_sort_order\" (default)
+            |
+            |  -d, --date-format=<date>
+            |          Format for 'committerdate' string:
+            |            \"$default_date_format\" (default)
             |
             |  -h, --help
             |          Show help message
@@ -1439,7 +1469,11 @@ fgb() {
             |Options:
             |  -s, --sort=<sort>
             |          Sort branches by <sort>:
-            |            -committerdate (default)
+            |            \"$default_sort_order\" (default)
+            |
+            |  -d, --date-format=<date>
+            |          Format for 'committerdate' string:
+            |            \"$default_date_format\" (default)
             |
             |  -f, --force
             |          Suppress confirmation dialog for non-destructive operations
@@ -1459,7 +1493,11 @@ fgb() {
             |Options:
             |  -s, --sort=<sort>
             |          Sort branches by <sort>:
-            |            -committerdate (default)
+            |            \"$default_sort_order\" (default)
+            |
+            |  -d, --date-format=<date>
+            |          Format for 'committerdate' string:
+            |            \"$default_date_format\" (default)
             |
             |  -r, --remotes
             |          List remote branches
@@ -1489,7 +1527,11 @@ fgb() {
             |Options:
             |  -s, --sort=<sort>
             |          Sort branches by <sort>:
-            |            -committerdate (default)
+            |            \"$default_sort_order\" (default)
+            |
+            |  -d, --date-format=<date>
+            |          Format for 'committerdate' string:
+            |            \"$default_date_format\" (default)
             |
             |  -r, --remotes
             |          List remote branches
