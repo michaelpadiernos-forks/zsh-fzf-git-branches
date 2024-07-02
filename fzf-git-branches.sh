@@ -242,12 +242,15 @@ fgb() {
             local ref_type refs
             for ref_type in "${ref_types[@]}"; do
                 refs=$(git for-each-ref \
-                        --format="%(refname):%(committername)|%($c_date_format)" \
+                        --format="$(
+                            printf '%%(refname)%b%%(committername)%b%%(%s)' \
+                                '\x1f' '\x1f' "$c_date_format"
+                        )" \
                         --sort="$c_branch_sort_order" \
                         refs/"$ref_type"
                 )
                 if [[ -n "$filter_list" ]]; then
-                    echo "$refs" | grep "$(sed 's/^/^/; s/$/:/' <<< "$filter_list")"
+                    echo "$refs" | grep "$(sed "s/^/^/; s/$/$(printf '\x1f')/" <<< "$filter_list")"
                 else
                     echo "$refs"
                 fi
@@ -273,19 +276,13 @@ fgb() {
                 author_curr_width \
                 date_curr_width
             while IFS= read -r line; do
-                # Remove the longest suffix starting with ':'
-                branch="${line%%:*}"
+                IFS=$'\x1f' read -r branch author_name author_date <<< "$line"
                 branch_name="$branch"
                 # Remove first two segments of the reference name
                 branch_name="${branch_name#*/}"
                 branch_name="${branch_name#*/}"
-                # Remove the shortest prefix ending with ':'
-                author_name="${line#*:}"
-                # Remove the shortest suffix starting with '|'
-                author_name="${author_name%|*}"
                 c_branch_author_map["$branch"]="$author_name"
-                # Remove the longest prefix ending with '|'
-                c_branch_date_map["$branch"]="${line##*|}"
+                c_branch_date_map["$branch"]="$author_date"
                 date_curr_width="${#c_branch_date_map["$branch"]}"
                 c_date_width="$((
                     date_curr_width > c_date_width ?
@@ -295,9 +292,9 @@ fgb() {
                 # Calculate column widths
                 branch_curr_width="${#branch_name}"
                 c_branch_width="$((
-                        branch_curr_width > c_branch_width ?
-                        branch_curr_width :
-                        c_branch_width
+                    branch_curr_width > c_branch_width ?
+                    branch_curr_width :
+                    c_branch_width
                 ))"
                 # Trim long author names with multiple parts delimited by '/'
                 author_curr_width="${#author_name}"
@@ -308,9 +305,9 @@ fgb() {
                 fi
 
                 c_author_width="$((
-                        author_curr_width > c_author_width ?
-                        author_curr_width :
-                        c_author_width
+                    author_curr_width > c_author_width ?
+                    author_curr_width :
+                    c_author_width
                 ))"
             done <<< "$branch_list"
         }
@@ -321,7 +318,7 @@ fgb() {
 
             local branch branch_name author_name author_date bracket_open bracket_close
             while IFS= read -r branch; do
-                branch="${branch%%:*}"
+                branch="$(cut -d$'\x1f' -f1 <<< "$branch")"
                 branch_name="$branch"
                 if [[ "$branch" == refs/heads/* ]]; then
                     # Define the bracket characters
@@ -823,7 +820,7 @@ fgb() {
 
             local branch wt_path author_name author_date bracket_open bracket_close
             while IFS= read -r branch; do
-                branch="${branch%%:*}"
+                branch="$(cut -d$'\x1f' -f1 <<< "$branch")"
                 branch_name="$branch"
                 if [[ "$branch" == refs/heads/* ]]; then
                     # Remove first two segments of the reference name
