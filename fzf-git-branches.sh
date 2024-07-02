@@ -49,7 +49,6 @@ fgb() {
             esac
         }
 
-
         __fgb_stdout_unindented() {
             # Print a string to stdout unindented
 
@@ -71,7 +70,6 @@ fgb() {
             # remove indentation
             sed '1d;s/^[^|]*|//;$d' <<< "$(sed -z 's/\\#\n[^|]*|//g' <<< "$1")"
         }
-
 
         __fgb_git_branch_delete() {
             # Delete a Git branch
@@ -218,7 +216,6 @@ fgb() {
             done
         }
 
-
         __fgb_git_branch_list() {
             # List branches in a git repository
 
@@ -254,7 +251,6 @@ fgb() {
                 fi
             done
         }
-
 
         __fgb_branch_set_vars() {
             # Define branch related variables
@@ -310,7 +306,6 @@ fgb() {
             done <<< "$branch_list"
         }
 
-
         __fgb_branch_list() {
             # List branches in a git repository
 
@@ -343,7 +338,6 @@ fgb() {
                 echo
             done <<< "$c_branches"
         }
-
 
         __fgb_set_spacer_var() {
             # Set spacer variables for branch/worktree list subcommands
@@ -412,7 +406,6 @@ fgb() {
                 [ "$c_spacer" -le 0 ] && c_spacer=1 || c_spacer=$(( c_spacer < 4 ? c_spacer : 4 ))
             fi
         }
-
 
         __fgb_branch_manage() {
             # Manage Git branches
@@ -622,7 +615,6 @@ fgb() {
             esac
         }
 
-
         __fgb_git_worktree_delete() {
             # Delete a Git worktree for a given branch
 
@@ -757,7 +749,6 @@ fgb() {
             done
         }
 
-
         __fgb_git_worktree_jump_or_add() {
             # Jump to an existing worktree or add a new one for a given branch
 
@@ -835,7 +826,6 @@ fgb() {
             fi
         }
 
-
         __fgb_worktree_list() {
             # List worktrees in a git repository
 
@@ -890,7 +880,6 @@ fgb() {
                 echo
             done <<< "$c_branches"
         }
-
 
         __fgb_worktree_add() {
             # Add a new worktree for a given branch
@@ -987,7 +976,6 @@ fgb() {
             esac
         }
 
-
         __fgb_worktree_total() {
             # Manage Git worktrees
 
@@ -1073,7 +1061,6 @@ fgb() {
             esac
         }
 
-
         __fgb_worktree_manage() {
             # Manage Git worktrees
 
@@ -1156,7 +1143,6 @@ fgb() {
             esac
         }
 
-
         __fgb_worktree_set_vars() {
             # Define worktree related variables
 
@@ -1203,7 +1189,6 @@ fgb() {
                 ))"
             done <<< "$wt_list"
         }
-
 
         __fgb_worktree() {
             # Manage Git worktrees
@@ -1313,7 +1298,6 @@ fgb() {
                     ;;
             esac
         }
-
 
         # Declare "global" (commonly used) variables
         local \
