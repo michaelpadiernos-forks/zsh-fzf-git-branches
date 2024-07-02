@@ -439,8 +439,8 @@ fgb() {
             [[ "$c_show_date" == true ]] && header_column_names_row+="$column_date"
 
             local header="Manage Git Branches:"
-            header+=" ctrl-y:jump, ctrl-t:toggle, ${del_key}:delete"
-            header+=", ${extend_del_key}:extended-delete, ${info_key}:info"
+            header+=" ${del_key}:del, ${extend_del_key}:extended-del, ${info_key}:info"
+            [[ -n "$c_bind_keys" ]] && header+=", $c_bind_keys"
             header+=$(__fgb_stdout_unindented "
                 |
                 |$header_column_names_row
@@ -935,8 +935,9 @@ fgb() {
             [[ "$c_show_date" == true ]] && header_column_names_row+="$column_date"
 
             local header="Add a Git Worktree:"
-            header+=" ctrl-y:jump, ctrl-t:toggle, ${del_key}:delete"
-            header+=", ${extend_del_key}:extended-delete, ${info_key}:info, ${verbose_key}:verbose"
+            header+=" ${del_key}:del"
+            header+=", ${extend_del_key}:extended-del, ${info_key}:info, ${verbose_key}:verbose"
+            [[ -n "$c_bind_keys" ]] && header+=", $c_bind_keys"
             header+=$(__fgb_stdout_unindented "
                 |
                 |$header_column_names_row
@@ -1022,8 +1023,9 @@ fgb() {
             [[ "$c_show_date" == true ]] && header_column_names_row+="$column_date"
 
             local header="Manage Git Worktrees (total):"
-            header+=" ctrl-y:jump, ctrl-t:toggle, ${del_key}:delete"
-            header+=", ${extend_del_key}:extended-delete, ${info_key}:info, ${verbose_key}:verbose"
+            header+=" ${del_key}:del"
+            header+=", ${extend_del_key}:extended-del, ${info_key}:info, ${verbose_key}:verbose"
+            [[ -n "$c_bind_keys" ]] && header+=", $c_bind_keys"
             header+=$(__fgb_stdout_unindented "
                 |
                 |$header_column_names_row
@@ -1105,8 +1107,8 @@ fgb() {
             [[ "$c_show_date" == true ]] && header_column_names_row+="$column_date"
 
             local header="Manage Git Worktrees:"
-            header+=" ctrl-y:jump, ctrl-t:toggle, ${del_key}:delete"
-            header+=", ${extend_del_key}:extended-delete, ${info_key}:info"
+            header+=" ${del_key}:del, ${extend_del_key}:extended-del, ${info_key}:info"
+            [[ -n "$c_bind_keys" ]] && header+=", $c_bind_keys"
             header+=$(__fgb_stdout_unindented "
                 |
                 |$header_column_names_row
@@ -1339,7 +1341,12 @@ fgb() {
             c_confirmed=false \
             c_branch_sort_order="-committerdate" \
             c_date_format="committerdate:relative" \
-            c_author_format="committername"
+            c_author_format="committername" \
+            c_bind_keys=""
+
+            # Extract all --bind keys specified in FZF arguments so far to add them to the header
+            c_bind_keys="$(echo "$FZF_CMD_GLOB" | tr ' ' '\n' | grep -- '--bind' |
+                cut -d'=' -f2 | tr '\n' ',' | sed 's/,$//;s/,/, /g')"
 
         local -A \
             c_branch_author_map \
