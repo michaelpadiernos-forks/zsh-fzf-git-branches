@@ -19,6 +19,7 @@ fgb() {
             --pointer='' \
             --preview 'git log --oneline --decorate --graph --color=always {1}' \
         "
+    FZF_ARGS_GLOB="${FGB_FZF_OPTS:-"$FZF_ARGS_GLOB"}"
     local FZF_CMD_GLOB
     if [[ $fzf_version -gt $fzf_min_version ]]; then
         FZF_CMD_GLOB="fzf --height 80% --reverse $FZF_ARGS_GLOB"
