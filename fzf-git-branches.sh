@@ -311,7 +311,7 @@ fgb() {
 
             local branch branch_name author_name author_date bracket_open bracket_close
             while IFS= read -r branch; do
-                branch="$(cut -d$'\x1f' -f1 <<< "$branch")"
+                branch="${branch%%$'\x1f'*}"
                 branch_name="$branch"
                 if [[ "$branch" == refs/heads/* ]]; then
                     # Define the bracket characters
@@ -833,7 +833,7 @@ fgb() {
 
             local branch wt_path author_name author_date bracket_open bracket_close
             while IFS= read -r branch; do
-                branch="$(cut -d$'\x1f' -f1 <<< "$branch")"
+                branch="${branch%%$'\x1f'*}"
                 branch_name="$branch"
                 if [[ "$branch" == refs/heads/* ]]; then
                     # Remove first two segments of the reference name
