@@ -242,10 +242,8 @@ fgb() {
             local ref_type refs
             for ref_type in "${ref_types[@]}"; do
                 refs=$(git for-each-ref \
-                        --format="$(
-                            printf '%%(refname)%b%%(%s)%b%%(%s)' \
-                                '\x1f' "$c_author_format" '\x1f' "$c_date_format"
-                        )" \
+                        --format="$(printf '%%(refname)%b%s%b%s' \
+                                '\x1f' "$c_author_format" '\x1f' "$c_date_format")" \
                         --sort="$c_branch_sort_order" \
                         refs/"$ref_type"
                 )
@@ -502,6 +500,21 @@ fgb() {
             esac
         }
 
+        __fgb_transform_git_format_string() {
+            if [[ $# -ne 1  ]]; then
+                echo "$0 error: missing argument: input Git format string" >&2
+                return 1
+            fi
+
+            local input_string="$1"
+
+            local input_string="$1"
+            if [[ "$input_string" =~ %\\([^\)]*[a-zA-Z0-9_]+[^\)]*\\) ]]; then
+                printf "%s" "$input_string"
+            else
+                printf "%%(%s)" "$input_string"
+            fi
+        }
 
         __fgb_branch() {
             # Manage Git branches
@@ -575,6 +588,9 @@ fgb() {
                         esac
                         shift
                     done
+
+                    c_date_format="$(__fgb_transform_git_format_string "$c_date_format")"
+                    c_author_format="$(__fgb_transform_git_format_string "$c_author_format")"
 
                     local branch_type
                     [[ "$branch_show_remote" == true ]] && \
@@ -1255,6 +1271,9 @@ fgb() {
                         shift
                     done
 
+                    c_date_format="$(__fgb_transform_git_format_string "$c_date_format")"
+                    c_author_format="$(__fgb_transform_git_format_string "$c_author_format")"
+
                     __fgb_worktree_set_vars || return $?
 
                     local branch_type
@@ -1653,6 +1672,7 @@ fgb() {
         __fgb_git_worktree_jump_or_add \
         __fgb_set_spacer_var \
         __fgb_stdout_unindented \
+        __fgb_transform_git_format_string \
         __fgb_worktree \
         __fgb_worktree_add \
         __fgb_worktree_list \
