@@ -130,12 +130,11 @@ fgb() {
                     return 1
                 fi
 
+                local return_code
                 if [[ "$c_extend_del" == true ]]; then
                     if [[ "$is_remote" == true ]]; then
-                        if ! local_branches="$(__fgb_git_branch_list "local")"; then
-                            echo -e "$local_branches" >&2
-                            return 1
-                        fi
+                        local_branches="$(__fgb_git_branch_list "local")"
+                        return_code=$?; [[ $return_code -ne 0 ]] && return "$return_code"
                         remote_tracking="refs/remotes/${branch_name}"
                         while IFS= read -r branch; do
                             upstream="$(
@@ -238,7 +237,7 @@ fgb() {
             [[ "$branch_type" == "remote" ]] && ref_types=("remotes")
             [[ "$branch_type" == "all" ]] && ref_types=("heads" "remotes")
 
-            local ref_type refs
+            local ref_type refs return_code
             for ref_type in "${ref_types[@]}"; do
                 refs=$(git for-each-ref \
                         --format="$(printf '%%(refname)%b%s%b%s' \
@@ -246,6 +245,7 @@ fgb() {
                         --sort="$c_branch_sort_order" \
                         refs/"$ref_type"
                 )
+                return_code=$?; [[ $return_code -ne 0 ]] && return "$return_code"
                 if [[ -n "$filter_list" ]]; then
                     echo "$refs" | grep "$(sed "s/^/^/; s/$/$(printf '\x1f')/" <<< "$filter_list")"
                 else
@@ -658,7 +658,9 @@ fgb() {
                         branch_type="local"
                     [[ "$branch_show_all" == true ]] && branch_type="all"
 
+                    local return_code
                     c_branches="$(__fgb_git_branch_list "$branch_type")"
+                    return_code=$?; [[ $return_code -ne 0 ]] && return "$return_code"
                     __fgb_branch_set_vars "$c_branches"
                     __fgb_set_spacer_var "branch"
                     case $subcommand in
@@ -1206,7 +1208,10 @@ fgb() {
                 rev <<< "$wt_list" | cut -d' ' -f1 | rev | sed 's|^.\(.*\).$|\1|;s|^|refs/heads/|'
             )"
 
-            __fgb_branch_set_vars "$(__fgb_git_branch_list "local" "$c_worktree_branches")"
+            local branch_list
+            branch_list="$(__fgb_git_branch_list "local" "$c_worktree_branches")"
+            return_code=$?; [[ $return_code -ne 0 ]] && return "$return_code"
+            __fgb_branch_set_vars "$branch_list"
 
             local \
                 branch \
@@ -1315,10 +1320,9 @@ fgb() {
                     # shellcheck disable=SC2076
                     [[ " list manage " =~ " $subcommand " ]] && filter_list="$c_worktree_branches"
 
-                    if ! c_branches="$(__fgb_git_branch_list "$branch_type" "$filter_list")"; then
-                        echo -e "$c_branches" >&2
-                        return 1
-                    fi
+                    local return_code
+                    c_branches="$(__fgb_git_branch_list "$branch_type" "$filter_list")"
+                    return_code=$?; [[ $return_code -ne 0 ]] && return "$return_code"
 
                     case "$subcommand" in
                         add) __fgb_worktree_add "${fzf_query[@]}" ;;
