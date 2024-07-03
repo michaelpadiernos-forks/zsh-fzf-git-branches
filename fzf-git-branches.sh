@@ -471,7 +471,7 @@ fgb() {
                 return 1
             fi
             # Remove the first and the last characters (brackets)
-            branch="${branch:1}"; branch="${branch%?}"
+            branch="${branch:1:-1}"
             case $key in
                 "$del_key") __fgb_git_branch_delete "$(sed 1d <<< "$lines")" ;;
                 "$extend_del_key")
@@ -970,7 +970,7 @@ fgb() {
                     ;;
                 "$info_key")
                     # Remove the first and the last characters (brackets)
-                    branch="${branch:1}"; branch="${branch%?}"
+                    branch="${branch:1:-1}"
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
                     echo -e "committer : ${col_g}$(
                         git log -1 --pretty=format:"%cn" "$branch"
@@ -1054,7 +1054,7 @@ fgb() {
                     ;;
                 "$info_key")
                     # Remove the first and the last characters (brackets)
-                    branch="${branch:1}"; branch="${branch%?}"
+                    branch="${branch:1:-1}"
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
                     local wt_path; wt_path="${c_worktree_path_map["refs/heads/${branch}"]}"
                     [[ -n "$wt_path" ]] && echo -e "worktree  : ${col_bold}$wt_path${col_reset}"
@@ -1137,7 +1137,7 @@ fgb() {
                     ;;
                 "$info_key")
                     # Remove the first and the last characters (brackets)
-                    branch="${branch:1}"; branch="${branch%?}"
+                    branch="${branch:1:-1}"
                     echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
                     local wt_path; wt_path="${c_worktree_path_map["refs/heads/${branch}"]}"
                     echo -e "worktree  : ${col_bold}$wt_path${col_reset}"
