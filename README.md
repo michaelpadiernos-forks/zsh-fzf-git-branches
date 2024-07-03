@@ -52,87 +52,101 @@ fgb worktree total
 
 This will open a fzf interface to manage your Git branches.
 
-Key Bindings
-enter/ctrl-y: Jump to the selected branch.
-ctrl-t: Toggle the selection.
-ctrl-d: Delete the selected branch.
-ctrl-alt-d: Extended delete.
-ctrl-o: Show branch information.
+### Key Bindings
+
+Default key bindings that can be overridden by an environment variable:
+- `enter/ctrl-y`: Select the branch/worktree to jump to.
+- `ctrl-t`: Toggle the selection.
+
+After invoking fzf, the following keybindings are expected (hard-coded by design):
+- `ctrl-d`: Delete the selected branch.
+- `ctrl-alt-d`: Extended delete.
+    When deleting a worktree, delete the associated local branch;
+    when deleting a local branch, delete the remote branch.
+- `ctrl-o`: Show branch information.
 
 ### Available Commands and Subcommands
 
 #### Branch Commands
 
-- `fgb branch list [args]`
+- `fgb branch list [args]`:
+    Lists the Git branches in the repository and exit.
 
-  - **Purpose:** Lists the Git branches in the repository and exit. By default lists only local
-    branches.
-  - **Options:**
-    - `remotes`: Lists only remote branches.
-    - `all`: Lists both local and remote branches.
-    - `sort`: Sort branches by **_<sort>_**: default `refname`
-
-- `fgb branch manage [args]`
-  - **Purpose:** Switch to existing branches in the git repository, delete them, or get information about branches. By default lists only local branches.
-  - **Options:**
-    - `--remotes`: Lists only remote branches.
-    - `--all`: Lists both local and remote branches.
-    - `--sort`: Sort branches by **_<sort>_**: default `refname`
-    - `--force`: Suppress confirmation dialog for non-destructive operations
+- `fgb branch manage [args]`:
+    Switch to existing branches in the git repository, delete them,
+    or get information about branches.
 
 #### Worktree Commands
 
-- `fgb worktree list [args]`
+- `fgb worktree list [args]`:
+    Lists all worktrees in a bare Git repository and exit.
 
-  - **Purpose:** Lists all worktrees in a bare Git repository and exit.
-  - **Options:**
-    - `--remotes`: Lists only remote branches.
-    - `--all`: Lists both local and remote branches.
-    - `--sort`: Sort branches by **_<sort>_**: default `refname`
+- `fgb worktree manage [args]`:
+    Switch to existing worktrees in the bare Git repository or delete them.
 
-- `fgb worktree manage [args]`
+- `fgb worktree add [args]`:
+    Add a new worktree based on a selected Git branch.
 
-  - **Purpose:** Switch to existing worktrees in the bare Git repository or delete them.
-  - **Options:**
-    - `--sort`: Sort branches by **_<sort>_**: default `refname`
-    - `--force`: Suppress confirmation dialog for non-destructive operations
+- `fgb worktree total [args]`:
+    **_Total_** control over worktrees.
+    Add a new one, switch to an existing worktree in the bare Git repository,
+    or delete them, optionally with corresponding branches.
 
-- `fgb worktree add [args]`
+##### Available options used in commands in appropriate combinations.
 
-  - **Purpose:** Add a new worktree based on a selected Git branch.
-  - **Options:**
-    - `--remotes`: Lists only remote branches.
-    - `--all`: Lists both local and remote branches.
-    - `--sort`: Sort branches by **_<sort>_**: default `refname`
-    - `--confirm`: Automatic confirmation of the directory name for the new worktree
-    - `--force`: Suppress confirmation dialog for non-destructive operations
+- By default, all commands list only local branches.
+- `-r, --remotes`: Lists only remote branches.
+- `-a, --all`: Lists both local and remote branches.
+- `-s, --sort`: Sort branches by **_<sort>_**:
+    - `-committerdate` (default )
+    - `refname`
+    - `authorname`
+    - etc.
+- `-f, --force`:
+    Suppress confirmation dialog for non-destructive operations
+- `-c, --confirm`:
+    Automatic confirmation of the directory name for the new worktree
+- `-d, --date-format`:
+    Format for 'date' string:
+    - `committerdate:relative` (default)
+    - `%(authordate) %(committerdate:short)`
+    -  `authordate:(relative|local|default|iso|iso-strict|rfc|short|raw)`
+    - `authordate:format:'%Y-%m-%d %H:%M:%S'`
+    - `committerdate:format-local:'%Y-%m-%d %H:%M:%S'`
+- `-u, --author-format`:
+    Format for 'author' string:
+    - `committername` (default)
+    - `authoremail`
+    - `%(committername) %(committeremail)`
+    - `%(authorname) %(authormail) / %(committername) %(committeremail)`
 
-- `fgb worktree total [args]`
-  - **Purpose:** A **_total_** control over worktrees. Add a new one, switch to an existing
-    worktree in the bare Git repository, or delete them, optionally with corresponding branches.
-  - **Options:**
-    - `--remotes`: Lists only remote branches.
-    - `--all`: Lists both local and remote branches.
-    - `--sort`: Sort branches by **_<sort>_**: default `refname`
-    - `--confirm`: Automatic confirmation of the directory name for the new worktree
-    - `--force`: Suppress confirmation dialog for non-destructive operations
-
-For more details on each command and its options, you can use the `-h` or `--help` option. For
-example:
+For more details on each command and its options,
+you can use the `-h` or `--help` option. For example:
 
 ```sh
 fgb branch manage --help
 ```
 
+## TODO
+
+- [ ] Improve Documentation
+    - [ ] Include information on default fzf options
+    - [ ] Add information on overriding default options using environment variables
+    - [x] Provide details on default keybindings
+    - [ ] Include screenshots
+    - [ ] Add examples for configuring lazy loading and setting up aliases
+
 ## License
 
-This script is licensed under the GPL License. See the [LICENSE](LICENSE) file for more details.
+This script is licensed under the GPL License.
+See the [LICENSE](LICENSE) file for more details.
 
 ## Contribution
 
-Feel free to open issues or submit pull requests if you find bugs or have suggestions for
-improvements.
+Feel free to open issues or submit pull requests if you find bugs
+or have suggestions for improvements.
 
 ## Inspiration
 
-Inspired by [fzf-marks](https://github.com/urbainvaes/fzf-marks).
+Inspired by [fzf-marks](https://github.com/urbainvaes/fzf-marks) and
+[git-worktree.nvim](https://github.com/ThePrimeagen/git-worktree.nvim).
