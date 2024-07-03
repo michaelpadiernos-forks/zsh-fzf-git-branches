@@ -17,8 +17,8 @@ fgb() {
             --cycle \
             --multi \
             --pointer='' \
-            --preview 'git log --oneline --decorate --graph --color=always \
-                \$(echo {1} | sed -e \"s/^.\(.*\).$/\1/\")' \
+            --preview 'FGB_BRANCH={1}; \
+                git log --oneline --decorate --graph --color=always \${FGB_BRANCH:1:-1}' \
         "
     FZF_ARGS_GLOB="${FGB_FZF_OPTS:-"$FZF_ARGS_GLOB"}"
     local FZF_CMD_GLOB
