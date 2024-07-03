@@ -241,13 +241,18 @@ fgb() {
             for ref_type in "${ref_types[@]}"; do
                 refs=$(git for-each-ref \
                         --format="$(printf '%%(refname)%b%s%b%s' \
-                                '\x1f' "$c_author_format" '\x1f' "$c_date_format")" \
+                            "$c_split_char" \
+                            "$c_author_format" \
+                            "$c_split_char" \
+                            "$c_date_format")" \
                         --sort="$c_branch_sort_order" \
                         refs/"$ref_type"
                 )
                 return_code=$?; [[ $return_code -ne 0 ]] && return "$return_code"
                 if [[ -n "$filter_list" ]]; then
-                    echo "$refs" | grep "$(sed "s/^/^/; s/$/$(printf '\x1f')/" <<< "$filter_list")"
+                    echo "$refs" | grep "$(
+                        sed "s/^/^/; s/$/$(printf "%b" "$c_split_char")/" <<< "$filter_list"
+                    )"
                 else
                     echo "$refs"
                 fi
@@ -272,19 +277,19 @@ fgb() {
                 author_curr_width \
                 date_curr_width
             while IFS= read -r line; do
-                # Remove the longest suffix starting with '\x1f'
-                branch="${line%%$'\x1f'*}"
+                # Remove the longest suffix starting with unit delimeter char
+                branch="${line%%"$c_split_char"*}"
                 branch_name="$branch"
                 # Remove first two segments of the reference name
                 branch_name="${branch_name#*/}"
                 branch_name="${branch_name#*/}"
-                # Remove the shortest prefix ending with '\x1f'
-                author_name="${line#*$'\x1f'}"
-                # Remove the shortest suffix starting with '\x1f'
-                author_name="${author_name%$'\x1f'*}"
+                # Remove the shortest prefix ending with unit delimeter char
+                author_name="${line#*"$c_split_char"}"
+                # Remove the shortest suffix starting with unit delimeter char
+                author_name="${author_name%"$c_split_char"*}"
                 c_branch_author_map["$branch"]="$author_name"
-                # Remove the longest prefix ending with '\x1f'
-                c_branch_date_map["$branch"]="${line##*$'\x1f'}"
+                # Remove the longest prefix ending with unit delimeter char
+                c_branch_date_map["$branch"]="${line##*"$c_split_char"}"
                 date_curr_width="${#c_branch_date_map["$branch"]}"
                 c_date_width="$((
                     date_curr_width > c_date_width ?
@@ -319,7 +324,7 @@ fgb() {
 
             local branch branch_name author_name author_date bracket_open bracket_close
             while IFS= read -r branch; do
-                branch="${branch%%$'\x1f'*}"
+                branch="${branch%%"$c_split_char"*}"
                 branch_name="$branch"
                 if [[ "$branch" == refs/heads/* ]]; then
                     # Define the bracket characters
@@ -902,7 +907,7 @@ fgb() {
 
             local branch wt_path author_name author_date bracket_open bracket_close
             while IFS= read -r branch; do
-                branch="${branch%%$'\x1f'*}"
+                branch="${branch%%"$c_split_char"*}"
                 branch_name="$branch"
                 if [[ "$branch" == refs/heads/* ]]; then
                     # Remove first two segments of the reference name
@@ -955,7 +960,7 @@ fgb() {
 
             local line branch upstream wt_branch
             c_branches="$(while IFS= read -r line; do
-                    branch="${line%%$'\x1f'*}"
+                    branch="${line%%"$c_split_char"*}"
                     grep -q -E "${branch}$" <<< "$c_worktree_branches" && continue
                     if [[ "$branch" == refs/remotes/* ]]; then
                         while IFS= read -r wt_branch; do
@@ -1383,6 +1388,8 @@ fgb() {
             c_date_format="${FGB_DATE_FORMAT:-committerdate:relative}" \
             c_author_format="${FGB_AUTHOR_FORMAT:-committername}" \
             c_bind_keys=""
+
+            local c_split_char=$'\x1f' # (ASCII 31, Unit Separator)
 
             # Extract all --bind keys specified in FZF arguments so far to add them to the header
             c_bind_keys="$(echo "$FZF_CMD_GLOB" | tr ' ' '\n' | grep -- '--bind' |
