@@ -955,7 +955,7 @@ fgb() {
 
             local line branch upstream wt_branch
             c_branches="$(while IFS= read -r line; do
-                    branch="${line%%:*}"
+                    branch="${line%%$'\x1f'*}"
                     grep -q -E "${branch}$" <<< "$c_worktree_branches" && continue
                     if [[ "$branch" == refs/remotes/* ]]; then
                         while IFS= read -r wt_branch; do
