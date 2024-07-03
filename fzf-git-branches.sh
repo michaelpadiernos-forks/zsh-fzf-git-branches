@@ -415,6 +415,28 @@ fgb() {
             fi
         }
 
+        __fgb_print_branch_info() {
+            # Pring branch information
+
+            if [[ $# -lt 1  ]]; then
+                echo "$0 error: missing argument: branch_name" >&2
+                return 1
+            fi
+
+            local branch="$1"
+
+            echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
+            local wt_path; wt_path="${c_worktree_path_map["refs/heads/${branch}"]}"
+            [[ -n "$wt_path" ]] && echo -e "worktree  : ${col_bold}$wt_path${col_reset}"
+            echo -e "committer : ${col_g}$(
+                git log -1 --pretty=format:"%cn" "$branch"
+            )${col_reset}"
+            echo -e "date      : ${col_b}$(
+                git log -1 --format="%cd" --date=relative "$branch"
+            )${col_reset}"
+            echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
+        }
+
         __fgb_branch_manage() {
             # Manage Git branches
 
@@ -479,14 +501,7 @@ fgb() {
                     __fgb_git_branch_delete "$(sed 1d <<< "$lines")"
                     ;;
                 "$info_key")
-                    echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
-                    echo -e "committer : ${col_g}$(
-                        git log -1 --pretty=format:"%cn" "$branch"
-                    )${col_reset}"
-                    echo -e "date      : ${col_b}$(
-                        git log -1 --format="%cd" --date=relative "$branch"
-                    )${col_reset}"
-                    echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
+                    __fgb_print_branch_info "$branch"
                     ;;
                 *)
                     if ! git rev-parse --show-toplevel &>/dev/null; then
@@ -502,6 +517,8 @@ fgb() {
         }
 
         __fgb_transform_git_format_string() {
+            # Enclose the Git format string into %( ... ) brackets if needed
+
             if [[ $# -ne 1  ]]; then
                 echo "$0 error: missing argument: input Git format string" >&2
                 return 1
@@ -971,14 +988,7 @@ fgb() {
                 "$info_key")
                     # Remove the first and the last characters (brackets)
                     branch="${branch:1:-1}"
-                    echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
-                    echo -e "committer : ${col_g}$(
-                        git log -1 --pretty=format:"%cn" "$branch"
-                    )${col_reset}"
-                    echo -e "date      : ${col_b}$(
-                        git log -1 --format="%cd" --date=relative "$branch"
-                    )${col_reset}"
-                    echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
+                    __fgb_print_branch_info "$branch"
                     ;;
                 "$verbose_key") c_confirmed=false; __fgb_git_worktree_jump_or_add "$branch" ;;
                 *) __fgb_git_worktree_jump_or_add "$branch" ;;
@@ -1055,16 +1065,7 @@ fgb() {
                 "$info_key")
                     # Remove the first and the last characters (brackets)
                     branch="${branch:1:-1}"
-                    echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
-                    local wt_path; wt_path="${c_worktree_path_map["refs/heads/${branch}"]}"
-                    [[ -n "$wt_path" ]] && echo -e "worktree  : ${col_bold}$wt_path${col_reset}"
-                    echo -e "committer : ${col_g}$(
-                        git log -1 --pretty=format:"%cn" "$branch"
-                    )${col_reset}"
-                    echo -e "date      : ${col_b}$(
-                        git log -1 --format="%cd" --date=relative "$branch"
-                    )${col_reset}"
-                    echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
+                    __fgb_print_branch_info "$branch"
                     ;;
                 "$verbose_key") c_confirmed=false; __fgb_git_worktree_jump_or_add "$branch" ;;
                 *) __fgb_git_worktree_jump_or_add "$branch" ;;
@@ -1138,16 +1139,7 @@ fgb() {
                 "$info_key")
                     # Remove the first and the last characters (brackets)
                     branch="${branch:1:-1}"
-                    echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
-                    local wt_path; wt_path="${c_worktree_path_map["refs/heads/${branch}"]}"
-                    echo -e "worktree  : ${col_bold}$wt_path${col_reset}"
-                    echo -e "committer : ${col_g}$(
-                        git log -1 --pretty=format:"%cn" "$branch"
-                    )${col_reset}"
-                    echo -e "date      : ${col_b}$(
-                        git log -1 --format="%cd" --date=relative "$branch"
-                    )${col_reset}"
-                    echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
+                    __fgb_print_branch_info "$branch"
                     ;;
                 *) __fgb_git_worktree_jump_or_add "$branch" ;;
             esac
@@ -1711,6 +1703,7 @@ fgb() {
         __fgb_git_branch_list \
         __fgb_git_worktree_delete \
         __fgb_git_worktree_jump_or_add \
+        __fgb_print_branch_info \
         __fgb_set_spacer_var \
         __fgb_stdout_unindented \
         __fgb_transform_git_format_string \
