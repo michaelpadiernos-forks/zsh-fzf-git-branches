@@ -425,16 +425,58 @@ fgb() {
 
             local branch="$1"
 
-            echo -e "branch    : ${col_y_bold}${branch}${col_reset}"
-            local wt_path; wt_path="${c_worktree_path_map["refs/heads/${branch}"]}"
-            [[ -n "$wt_path" ]] && echo -e "worktree  : ${col_bold}$wt_path${col_reset}"
-            echo -e "committer : ${col_g}$(
-                git log -1 --pretty=format:"%cn" "$branch"
-            )${col_reset}"
-            echo -e "date      : ${col_b}$(
-                git log -1 --format="%cd" --date=relative "$branch"
-            )${col_reset}"
-            echo -e "HEAD      : ${col_m}$(git rev-parse "$branch")${col_reset}"
+            local -A values=(
+                ["1.branch"]="$branch"
+                ["2.worktree"]="${c_worktree_path_map["refs/heads/${branch}"]}"
+                ["3.author"]="$(git log -1 --pretty=format:"%an <%ae>" "$branch")"
+                ["4.authordate"]="$(git log -1 --format="%ad" --date=iso "$branch")"
+                ["5.committer"]="$(git log -1 --pretty=format:"%cn <%ce>" "$branch")"
+                ["6.committerdate"]="$(git log -1 --format="%cd" --date=iso "$branch")"
+                ["7.HEAD"]="$(git rev-parse "$branch")"
+                ["8.message"]="$(git log -1 --format="%B" "$branch")"
+            )
+
+            local -A colors=(
+                ["1.branch"]="$col_y_bold"
+                ["2.worktree"]="$col_bold"
+                ["3.author"]="$col_g"
+                ["4.authordate"]="$col_b"
+                ["5.committer"]="$col_g"
+                ["6.committerdate"]="$col_b"
+                ["7.HEAD"]="$col_m"
+                ["8.message"]="$col_y"
+            )
+
+            local -a keys=()
+            local line key
+            if [[ -n "${ZSH_VERSION-}" ]]; then
+                # shellcheck disable=2066,2296
+                while IFS=$'\n' read -r line; do
+                    keys+=("$line")
+                done <<< "$(for key in "${(@k)values}"; do echo "$key"; done | sort -n)"
+            else
+                while IFS=$'\n' read -r line; do
+                    keys+=("$line")
+                done <<< "$(for key in "${!values[@]}"; do echo "$key"; done | sort -n)"
+            fi
+
+            local key_width max_width=0
+            for key in "${keys[@]}"; do
+                # Remove N. from the key
+                key="${key:2}"
+                key_width="${#key}"
+                max_width="$(( key_width > max_width ? key_width : max_width ))"
+            done
+
+            local message_indent_width message_indent_str
+            message_indent_width="$(( max_width + 3 ))"
+            message_indent_str=$(printf "%${message_indent_width}s")
+
+            for key in "${keys[@]}"; do
+                [[ -n "${values[$key]}" ]] && \
+                    printf "%-${max_width}s : ${colors[$key]}%s${col_reset}\n" \
+                        "${key:2}" "${values[$key]}" | sed "3,\$s/^/${message_indent_str}/"
+            done
         }
 
         __fgb_branch_manage() {
@@ -1305,6 +1347,7 @@ fgb() {
         local \
             col_reset='\033[0m' \
             col_g='\033[32m' \
+            col_y='\033[33m' \
             col_b='\033[34m' \
             col_m='\033[35m' \
             col_bold='\033[1m' \
