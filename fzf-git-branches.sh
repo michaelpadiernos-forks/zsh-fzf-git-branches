@@ -961,7 +961,7 @@ fgb() {
 
             local key; key="$(head -1 <<< "$lines")"
 
-            local branch; branch="$(tail -1 <<< "$lines")"
+            branch="$(tail -1 <<< "$lines")"
             case $key in
                 "$del_key") __fgb_git_branch_delete "$(sed 1d <<< "$lines")" ;;
                 "$extend_del_key")
