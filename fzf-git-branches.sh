@@ -3,7 +3,7 @@
 command -v fzf >/dev/null 2>&1 || return
 
 fgb() {
-    local VERSION="0.9.0"
+    local VERSION="0.9.1"
 
     # Set the command to use for fzf
     local fzf_version
@@ -17,7 +17,8 @@ fgb() {
             --cycle \
             --multi \
             --pointer='' \
-            --preview 'git log --oneline --decorate --graph --color=always {1}' \
+            --preview 'git log --oneline --decorate --graph --color=always \
+                \$(echo {1} | sed -e \"s/^.\(.*\).$/\1/\")' \
         "
     FZF_ARGS_GLOB="${FGB_FZF_OPTS:-"$FZF_ARGS_GLOB"}"
     local FZF_CMD_GLOB
