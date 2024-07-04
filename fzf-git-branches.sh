@@ -637,6 +637,19 @@ fgb() {
                                 echo "${usage_message[branch_$subcommand]}"
                                 return 0
                                 ;;
+                            --)
+                                if [[ "$subcommand" == "list" ]]; then
+                                    echo "error: unknown option: \`$1'" >&2
+                                    echo "       query not expected for the list command." >&2
+                                    echo "${usage_message[branch_$subcommand]}" >&2
+                                    return 1
+                                fi
+                                while [ $# -gt 1 ]; do
+                                    shift
+                                    fzf_query+=("$1")
+                                done
+                                break
+                                ;;
                             --* | -*)
                                 echo "error: unknown option: \`$1'" >&2
                                 echo "${usage_message[branch_$subcommand]}" >&2
@@ -645,6 +658,7 @@ fgb() {
                             *)
                                 if [[ "$subcommand" == "list" ]]; then
                                     echo "error: unknown option: \`$1'" >&2
+                                    echo "       query not expected for the list command." >&2
                                     echo "${usage_message[branch_$subcommand]}" >&2
                                     return 1
                                 fi
@@ -1300,6 +1314,19 @@ fgb() {
                                 ;;
                             -f | --force) c_force=true ;;
                             -h | --help) echo "${usage_message[worktree_$subcommand]}" >&2 ;;
+                            --)
+                                if [[ "$subcommand" == "list" ]]; then
+                                    echo "error: unknown option: \`$1'" >&2
+                                    echo "       query not expected for the list command." >&2
+                                    echo "${usage_message[branch_$subcommand]}" >&2
+                                    return 1
+                                fi
+                                while [ $# -gt 1 ]; do
+                                    shift
+                                    fzf_query+=("$1")
+                                done
+                                break
+                                ;;
                             --* | -*)
                                 echo "error: unknown option: \`$1'" >&2
                                 echo "${usage_message[worktree_$subcommand]}" >&2
