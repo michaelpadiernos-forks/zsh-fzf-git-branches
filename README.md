@@ -277,8 +277,8 @@ fgb branch manage --help
 ```
 <details>
   <summary>Screenshot</summary>
-
-![image](https://github.com/awerebea/fzf-git-branches/assets/63558838/e0e60353-077f-40b3-8ed7-c3fddb1268f4))
+   
+![image](https://github.com/awerebea/fzf-git-branches/assets/63558838/532722b3-21e3-483b-b987-f414118da191)
 </details>
 
 ## License

@@ -3,7 +3,7 @@
 command -v fzf >/dev/null 2>&1 || return
 
 fgb() {
-    local VERSION="0.10.2"
+    local VERSION="0.10.3"
 
     # Set the command to use for fzf
     local fzf_version
@@ -1479,16 +1479,13 @@ fgb() {
             |
             |Options:
             |  -s, --sort=<sort>
-            |          Sort branches by <sort>:
-            |            \"$default_sort_order\" (default)
+            |          Sort branches by <sort>: '$default_sort_order' (default)
             |
             |  -d, --date-format=<date>
-            |          Format for 'date' string:
-            |            \"$default_date_format\" (default)
+            |          Format for <date> string: '$default_date_format' (default)
             |
             |  -u, --author-format=<author>
-            |          Format for 'author' string:
-            |            \"$default_author_format\" (default)
+            |          Format for <author> string: '$default_author_format' (default)
             |
             |  -r, --remotes
             |          List remote branches
@@ -1510,16 +1507,13 @@ fgb() {
             |
             |Options:
             |  -s, --sort=<sort>
-            |          Sort branches by <sort>:
-            |            \"$default_sort_order\" (default)
+            |          Sort branches by <sort>: '$default_sort_order' (default)
             |
             |  -d, --date-format=<date>
-            |          Format for 'date' string:
-            |            \"$default_date_format\" (default)
+            |          Format for <date> string: '$default_date_format' (default)
             |
             |  -u, --author-format=<author>
-            |          Format for 'author' string:
-            |            \"$default_author_format\" (default)
+            |          Format for <author> string: '$default_author_format' (default)
             |
             |  -r, --remotes
             |          List remote branches
@@ -1559,16 +1553,13 @@ fgb() {
             |
             |Options:
             |  -s, --sort=<sort>
-            |          Sort branches by <sort>:
-            |            \"$default_sort_order\" (default)
+            |          Sort branches by <sort>: '$default_sort_order' (default)
             |
             |  -d, --date-format=<date>
-            |          Format for 'date' string:
-            |            \"$default_date_format\" (default)
+            |          Format for <date> string: '$default_date_format' (default)
             |
             |  -u, --author-format=<author>
-            |          Format for 'author' string:
-            |            \"$default_author_format\" (default)
+            |          Format for <author> string: '$default_author_format' (default)
             |
             |  -h, --help
             |          Show help message
@@ -1584,16 +1575,13 @@ fgb() {
             |
             |Options:
             |  -s, --sort=<sort>
-            |          Sort branches by <sort>:
-            |            \"$default_sort_order\" (default)
+            |          Sort branches by <sort>: '$default_sort_order' (default)
             |
             |  -d, --date-format=<date>
-            |          Format for 'date' string:
-            |            \"$default_date_format\" (default)
+            |          Format for <date> string: '$default_date_format' (default)
             |
             |  -u, --author-format=<author>
-            |          Format for 'author' string:
-            |            \"$default_author_format\" (default)
+            |          Format for <author> string: '$default_author_format' (default)
             |
             |  -f, --force
             |          Suppress confirmation dialog for non-destructive operations
@@ -1612,16 +1600,13 @@ fgb() {
             |
             |Options:
             |  -s, --sort=<sort>
-            |          Sort branches by <sort>:
-            |            \"$default_sort_order\" (default)
+            |          Sort branches by <sort>: '$default_sort_order' (default)
             |
             |  -d, --date-format=<date>
-            |          Format for 'date' string:
-            |            \"$default_date_format\" (default)
+            |          Format for <date> string: '$default_date_format' (default)
             |
             |  -u, --author-format=<author>
-            |          Format for 'author' string:
-            |            \"$default_author_format\" (default)
+            |          Format for <author> string: '$default_author_format' (default)
             |
             |  -r, --remotes
             |          List remote branches
@@ -1650,16 +1635,13 @@ fgb() {
             |
             |Options:
             |  -s, --sort=<sort>
-            |          Sort branches by <sort>:
-            |            \"$default_sort_order\" (default)
+            |          Sort branches by <sort>: '$default_sort_order' (default)
             |
             |  -d, --date-format=<date>
-            |          Format for 'date' string:
-            |            \"$default_date_format\" (default)
+            |          Format for <date> string: '$default_date_format' (default)
             |
             |  -u, --author-format=<author>
-            |          Format for 'author' string:
-            |            \"$default_author_format\" (default)
+            |          Format for <author> string: '$default_author_format' (default)
             |
             |  -r, --remotes
             |          List remote branches
