@@ -147,12 +147,22 @@ Manage branches:
 ```sh
 fgb branch manage
 ```
+<details>
+  <summary>Screenshot</summary>
+
+![image](https://github.com/awerebea/fzf-git-branches/assets/63558838/562de083-563d-4e12-8b86-fe0f5a6f356d)
+</details>
 
 Manage worktrees:
 
 ```sh
 fgb worktree total
 ```
+<details>
+  <summary>Screenshot</summary>
+
+![image](https://github.com/awerebea/fzf-git-branches/assets/63558838/f043dd0e-af1d-491b-a8c6-3c5cd0a3d37d)
+</details>
 
 This will open a fzf interface to manage your Git branches.
 
@@ -164,10 +174,27 @@ Default key bindings that can be overridden by an environment variable:
 
 After invoking fzf, the following keybindings are expected (hard-coded by design):
 - `ctrl-d`: Delete the selected branch.
+    <details>
+      <summary>Screenshot</summary>
+
+    ![image](https://github.com/awerebea/fzf-git-branches/assets/63558838/395654d8-43d8-48ca-87d9-be9097ec8d32)
+    </details>
+
 - `ctrl-alt-d`: Extended delete.
     When deleting a worktree, delete the associated local branch;
     when deleting a local branch, delete the remote branch.
+    <details>
+      <summary>Screenshot</summary>
+
+    ![image](https://github.com/awerebea/fzf-git-branches/assets/63558838/7fd26620-0dce-4f8b-b889-c46ec6f6548e)
+    </details>
+
 - `ctrl-o`: Show branch information.
+    <details>
+      <summary>Screenshot</summary>
+
+    ![image](https://github.com/awerebea/fzf-git-branches/assets/63558838/0581fe20-f60b-4881-b605-010bf23dacff)
+    </details>
 
 ### Available Commands and Subcommands
 
@@ -200,7 +227,19 @@ After invoking fzf, the following keybindings are expected (hard-coded by design
 
 - By default, all commands list only local branches.
 - `-r, --remotes`: Lists only remote branches.
+    <details>
+      <summary>Screenshot</summary>
+
+    ![image](https://github.com/awerebea/fzf-git-branches/assets/63558838/e914f240-2548-4250-87ce-074677e35654)
+    </details>
+
 - `-a, --all`: Lists both local and remote branches.
+    <details>
+      <summary>Screenshot</summary>
+
+    ![image](https://github.com/awerebea/fzf-git-branches/assets/63558838/93e26ef9-7cfa-492c-863d-5eef74097af1)
+    </details>
+
 - `-s, --sort`: Sort branches by **_<sort>_**:
     - `-committerdate` (default )
     - `refname`
@@ -224,21 +263,23 @@ After invoking fzf, the following keybindings are expected (hard-coded by design
     - `%(committername) %(committeremail)`
     - `%(authorname) %(authormail) / %(committername) %(committeremail)`
 
+<details>
+  <summary>Screenshot</summary>
+
+![image](https://github.com/awerebea/fzf-git-branches/assets/63558838/f333eb76-ef12-4565-b381-a6b8b72b6acb)
+</details>
+
 For more details on each command and its options,
 you can use the `-h` or `--help` option. For example:
 
 ```sh
 fgb branch manage --help
 ```
+<details>
+  <summary>Screenshot</summary>
 
-## TODO
-
-- [ ] Improve Documentation
-    - [x] Include information on default fzf options
-    - [x] Add information on overriding default options using environment variables
-    - [x] Provide details on default keybindings
-    - [ ] Include screenshots
-    - [x] Add examples for configuring lazy loading and setting up aliases
+![image](https://github.com/awerebea/fzf-git-branches/assets/63558838/e0e60353-077f-40b3-8ed7-c3fddb1268f4))
+</details>
 
 ## License
 
