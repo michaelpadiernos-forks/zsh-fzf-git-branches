@@ -32,6 +32,110 @@ convenient way to handle Git branches and worktrees with a fuzzy finder interfac
 
 3. Ensure `fzf` is installed and available in your `PATH`.
 
+## Advanced Configuration
+
+### Default Options Overriding
+
+The default values of FZF options are set as follows:
+```sh
+--height 80% \
+--reverse \
+--ansi \
+--bind=ctrl-y:accept,ctrl-t:toggle+down \
+--border=top \
+--cycle \
+--multi \
+--pointer='' \
+--preview 'FGB_BRANCH={1}; git log --oneline --decorate --graph --color=always \${FGB_BRANCH:1:-1}'
+```
+
+These defaults can be overridden by setting the `FGB_FZF_OPTS` environment variable.
+
+The default branches sort order is `-committerdate`, but this can be overridden by setting the `FGB_SORT_ORDER` environment variable.
+
+Similarly, the default date format is `committerdate:relative`, which can be overridden using `FGB_DATE_FORMAT`.
+
+Lastly, the default author format is `committername`, overrideable with `FGB_AUTHOR_FORMAT`.
+
+### Lazy Load
+
+To reduce shell startup time, consider lazy loading the script by calling it instead of sourcing it automatically every time.
+Replace `source ~/.fzf-git-branches/fzf-git-branches.sh` in your shell rc file with the following code snippet.
+This snippet defines several functions and aliases that load the script only when needed:
+
+```sh
+# Check if the script is installed
+if [ -f "$HOME/.fzf-git-branches/fzf-git-branches.sh" ]; then
+    lazy_fgb() {
+        unset -f fgb gbl gbm gwl gwa gwm gwt lazy_fgb
+        if ! source "$HOME/.fzf-git-branches/fzf-git-branches.sh"; then
+            echo "Failed to load fzf-git-branches" >&2
+            return 1
+        fi
+        alias gbl='fgb branch list'
+        alias gbm='fgb branch manage'
+        alias gwl='fgb worktree list'
+        alias gwm='fgb worktree manage'
+        alias gwa='fgb worktree add --confirm'
+        alias gwt='fgb worktree total --confirm'
+        fgb "$@"
+    }
+    function fgb() {
+        lazy_fgb "$@"
+    }
+    function gbl() {
+        lazy_fgb branch list "$@"
+    }
+    function gbm() {
+        lazy_fgb branch manage "$@"
+    }
+    function gwl() {
+        lazy_fgb worktree list "$@"
+    }
+    function gwm() {
+        lazy_fgb worktree manage "$@"
+    }
+    function gwa() {
+        lazy_fgb worktree add --confirm "$@"
+    }
+    function gwt() {
+        lazy_fgb worktree total --confirm "$@"
+    }
+fi
+```
+
+#### Lazy Load Explanation
+
+This snippet defines a lazy loading function `lazy_fgb` and related functions
+that wrap the `lazy_fgb` function call with corresponding commands, subcommands, and any additional arguments provided:
+- `lazy_fgb`: The main function responsible for lazy loading fzf-git-branches.sh and executing commands based on arguments passed to it.
+- `fgb`: Calls `lazy_fgb` with any arguments.
+- `gbl`: Calls `lazy_fgb` with the command `branch list`.
+- `gbm`: Calls `lazy_fgb` with the command `branch manage`.
+- `gwl`: Calls `lazy_fgb` with the command `worktree list`.
+- `gwm`: Calls `lazy_fgb` with the command `worktree manage`.
+- `gwa`: Calls `lazy_fgb` with the command `worktree add --confirm`.
+- `gwt`: Calls `lazy_fgb` with the command `worktree total --confirm`.
+
+Here’s how it works:
+
+Lazy Loading Function `lazy_fgb`: On its first call, `lazy_fgb` unsets itself and all related functions. It then sources the `fzf-git-branches.sh` script to load its functionality.
+
+Lazy Loading Function (lazy_fgb):
+Upon its initial invocation, `lazy_fgb` unsets itself and all associated functions.
+It subsequently sources the `fzf-git-branches.sh` script to load its functionality.
+
+Aliases for Convenience:
+To replace the functions that were unset earlier, `lazy_fgb` establishes aliases with identical names
+corresponding to commonly used commands provided by the script.
+These aliases simplify the execution of the script’s commands, enhancing usability and efficiency.
+
+Customization:
+Users can edit or expand the aliases as needed for their specific requirements.
+
+This approach enhances shell startup efficiency by loading scripts only when necessary,
+while the predefined aliases streamline command execution once the script is loaded.
+
 ## Usage
 
 To start using the script, call the `fgb` function in your terminal with a command and its options as arguments.
@@ -130,11 +234,11 @@ fgb branch manage --help
 ## TODO
 
 - [ ] Improve Documentation
-    - [ ] Include information on default fzf options
-    - [ ] Add information on overriding default options using environment variables
+    - [x] Include information on default fzf options
+    - [x] Add information on overriding default options using environment variables
     - [x] Provide details on default keybindings
     - [ ] Include screenshots
-    - [ ] Add examples for configuring lazy loading and setting up aliases
+    - [x] Add examples for configuring lazy loading and setting up aliases
 
 ## License
 
