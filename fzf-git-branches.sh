@@ -92,8 +92,10 @@ fgb() {
                 output \
                 remote_name \
                 remote_tracking \
+                return_code \
                 upstream \
                 user_prompt
+
             local -a array_of_lines=()
             if [[ -n "${ZSH_VERSION-}" ]]; then
                 # shellcheck disable=SC2116,SC2296
@@ -131,9 +133,9 @@ fgb() {
                     return 1
                 fi
 
-                local return_code
                 if [[ "$c_extend_del" == true ]]; then
                     if [[ "$is_remote" == true ]]; then
+                        # Find local branch that tracks the selected remote branch
                         local_branches="$(__fgb_git_branch_list "local")"
                         return_code=$?; [[ $return_code -ne 0 ]] && return "$return_code"
                         remote_tracking="refs/remotes/${branch_name}"
@@ -150,6 +152,7 @@ fgb() {
                             fi
                         done <<< "$(cut -d: -f1 <<< "$local_branches")"
                     else
+                        # Find upstream branch for the selected local branch
                         local_tracking="$branch_name"
                         remote_tracking="$(
                             git  for-each-ref --format '%(upstream)' "refs/heads/$branch_name"
