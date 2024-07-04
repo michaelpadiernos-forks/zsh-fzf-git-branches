@@ -1485,17 +1485,10 @@ fgb() {
             |  -d, --date-format=<date>
             |          Format for 'date' string:
             |            \"$default_date_format\" (default)
-            |            \"committerdate\"
-            |            \"authordate:(relative|local|default|iso|iso-strict|rfc|short|raw)\"
-            |            \"authordate:format:'%Y-%m-%d %H:%M:%S'\"
-            |            \"committerdate:format-local:'%Y-%m-%d %H:%M:%S'\"
             |
             |  -u, --author-format=<author>
             |          Format for 'author' string:
             |            \"$default_author_format\" (default)
-            |            \"authoremail\"
-            |            \"%(committername) %(committeremail)\"
-            |            \"%(authorname) %(authormail) / %(committername) %(committeremail)\"
             |
             |  -r, --remotes
             |          List remote branches
@@ -1523,17 +1516,10 @@ fgb() {
             |  -d, --date-format=<date>
             |          Format for 'date' string:
             |            \"$default_date_format\" (default)
-            |            \"committerdate\"
-            |            \"authordate:(relative|local|default|iso|iso-strict|rfc|short|raw)\"
-            |            \"authordate:format:'%Y-%m-%d %H:%M:%S'\"
-            |            \"committerdate:format-local:'%Y-%m-%d %H:%M:%S'\"
             |
             |  -u, --author-format=<author>
             |          Format for 'author' string:
             |            \"$default_author_format\" (default)
-            |            \"authoremail\"
-            |            \"%(committername) %(committeremail)\"
-            |            \"%(authorname) %(authormail) / %(committername) %(committeremail)\"
             |
             |  -r, --remotes
             |          List remote branches
@@ -1579,17 +1565,10 @@ fgb() {
             |  -d, --date-format=<date>
             |          Format for 'date' string:
             |            \"$default_date_format\" (default)
-            |            \"committerdate\"
-            |            \"authordate:(relative|local|default|iso|iso-strict|rfc|short|raw)\"
-            |            \"authordate:format:'%Y-%m-%d %H:%M:%S'\"
-            |            \"committerdate:format-local:'%Y-%m-%d %H:%M:%S'\"
             |
             |  -u, --author-format=<author>
             |          Format for 'author' string:
             |            \"$default_author_format\" (default)
-            |            \"authoremail\"
-            |            \"%(committername) %(committeremail)\"
-            |            \"%(authorname) %(authormail) / %(committername) %(committeremail)\"
             |
             |  -h, --help
             |          Show help message
@@ -1611,17 +1590,10 @@ fgb() {
             |  -d, --date-format=<date>
             |          Format for 'date' string:
             |            \"$default_date_format\" (default)
-            |            \"committerdate\"
-            |            \"authordate:(relative|local|default|iso|iso-strict|rfc|short|raw)\"
-            |            \"authordate:format:'%Y-%m-%d %H:%M:%S'\"
-            |            \"committerdate:format-local:'%Y-%m-%d %H:%M:%S'\"
             |
             |  -u, --author-format=<author>
             |          Format for 'author' string:
             |            \"$default_author_format\" (default)
-            |            \"authoremail\"
-            |            \"%(committername) %(committeremail)\"
-            |            \"%(authorname) %(authormail) / %(committername) %(committeremail)\"
             |
             |  -f, --force
             |          Suppress confirmation dialog for non-destructive operations
@@ -1646,17 +1618,10 @@ fgb() {
             |  -d, --date-format=<date>
             |          Format for 'date' string:
             |            \"$default_date_format\" (default)
-            |            \"committerdate\"
-            |            \"authordate:(relative|local|default|iso|iso-strict|rfc|short|raw)\"
-            |            \"authordate:format:'%Y-%m-%d %H:%M:%S'\"
-            |            \"committerdate:format-local:'%Y-%m-%d %H:%M:%S'\"
             |
             |  -u, --author-format=<author>
             |          Format for 'author' string:
             |            \"$default_author_format\" (default)
-            |            \"authoremail\"
-            |            \"%(committername) %(committeremail)\"
-            |            \"%(authorname) %(authormail) / %(committername) %(committeremail)\"
             |
             |  -r, --remotes
             |          List remote branches
@@ -1691,17 +1656,10 @@ fgb() {
             |  -d, --date-format=<date>
             |          Format for 'date' string:
             |            \"$default_date_format\" (default)
-            |            \"committerdate\"
-            |            \"authordate:(relative|local|default|iso|iso-strict|rfc|short|raw)\"
-            |            \"authordate:format:'%Y-%m-%d %H:%M:%S'\"
-            |            \"committerdate:format-local:'%Y-%m-%d %H:%M:%S'\"
             |
             |  -u, --author-format=<author>
             |          Format for 'author' string:
             |            \"$default_author_format\" (default)
-            |            \"authoremail\"
-            |            \"%(committername) %(committeremail)\"
-            |            \"%(authorname) %(authormail) / %(committername) %(committeremail)\"
             |
             |  -r, --remotes
             |          List remote branches
