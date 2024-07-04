@@ -85,6 +85,7 @@ fgb() {
                 branch \
                 branch_name \
                 branches_to_delete="$1" \
+                error_pattern \
                 is_remote \
                 local_branches \
                 local_tracking \
@@ -183,7 +184,8 @@ fgb() {
                     if [[ "$c_force" == true ]] || __fgb_confirmation_dialog "$user_prompt"; then
                         if ! output="$(git branch -d "$branch_name" 2>&1)"; then
                             local head_branch; head_branch="$(git rev-parse --abbrev-ref HEAD)"
-                            if ! grep -q "^error: .* is not fully merged\.$" <<< "$output"; then
+                            error_pattern="^error: the branch '$branch_name' is not fully merged$"
+                            if ! grep -q "$error_pattern" <<< "$output"; then
                                 echo "$output"
                                 continue
                             fi
