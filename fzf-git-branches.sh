@@ -1225,11 +1225,24 @@ fgb() {
                     rev
             )"
 
-            local wt_list; wt_list="$(git worktree list | sed '1d')"
+            local wt_list; wt_list="$(git worktree list --porcelain | sed '1,3d' |
+                awk -v split_char="$c_split_char" '
+                    /^worktree/ {
+                        path = $2
+                    }
+                    /^HEAD/ {
+                        hash = $2
+                    }
+                    /^branch/ {
+                        branch = $2
+                        printf "%s%s%s\n", path, split_char, branch
+                    }
+                    /^detached/ {
+                        printf "%s%srefs/detached/%.7s\n", path, split_char, hash
+                }')"
 
-            # Remove brackets from the branch names (3rd column in the output) using sed
             c_worktree_branches="$(
-                rev <<< "$wt_list" | cut -d' ' -f1 | rev | sed 's|^.\(.*\).$|\1|;s|^|refs/heads/|'
+                awk -v split_char="$c_split_char" -F"$c_split_char" '{print $2}' <<< "$wt_list"
             )"
 
             local branch_list
@@ -1243,12 +1256,8 @@ fgb() {
                 wt_path \
                 wt_path_curr_width
             while IFS= read -r line; do
-                branch="$(
-                    rev <<< "$line" | cut -d' ' -f1 | rev | sed 's|^.\(.*\).$|\1|;s|^|refs/heads/|'
-                )"
-                c_worktree_path_map["$branch"]="$(
-                    rev <<< "$line" | cut -d' ' -f3- | sed 's/^[[:space:]]*//' | rev
-                )"
+                branch="${line#*"$c_split_char"}"
+                c_worktree_path_map["$branch"]="${line%"$c_split_char"*}"
                 # Calculate column widths
                 wt_path="${c_worktree_path_map["$branch"]}"
                 [ "$wt_path" != "" ] && \
