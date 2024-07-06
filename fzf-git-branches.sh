@@ -493,28 +493,22 @@ fgb() {
             # Manage Git branches
 
             local \
-                del_key="ctrl-d" \
-                extend_del_key="ctrl-alt-d" \
-                info_key="ctrl-o" \
-                column_branch="Branch" \
                 spacer_branch=" " \
-                column_author="Author" \
                 spacer_authour=" " \
-                column_date="Date" \
                 header_column_names_row
 
             spacer_branch="$(
-                printf "%$(( c_branch_width + 2 - ${#column_branch} + c_spacer ))s" " "
+                printf "%$(( c_branch_width + 2 - ${#c_column_branch} + c_spacer ))s" " "
             )"
-            spacer_authour="$(printf "%$(( c_author_width - ${#column_author} + c_spacer ))s" " ")"
+            spacer_authour="$(printf "%$(( c_author_width - ${#c_column_author} + c_spacer ))s" " ")"
 
-            header_column_names_row="${column_branch}${spacer_branch}"
+            header_column_names_row="${c_column_branch}${spacer_branch}"
             [[ "$c_show_author" == true ]] && \
-                header_column_names_row+="${column_author}${spacer_authour}"
-            [[ "$c_show_date" == true ]] && header_column_names_row+="$column_date"
+                header_column_names_row+="${c_column_author}${spacer_authour}"
+            [[ "$c_show_date" == true ]] && header_column_names_row+="$c_column_date"
 
             local header="Manage Git Branches:"
-            header+=" ${del_key}:del, ${extend_del_key}:extended-del, ${info_key}:info"
+            header+=" ${c_del_key}:del, ${c_extend_del_key}:extended-del, ${c_info_key}:info"
             [[ -n "$c_bind_keys" ]] && header+=", $c_bind_keys"
             header+=$(__fgb_stdout_unindented "
                 |
@@ -522,7 +516,7 @@ fgb() {
             ")
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
-                    --expect='"$del_key,$extend_del_key,$info_key"' \
+                    --expect='"$c_del_key,$c_extend_del_key,$c_info_key"' \
                     --header '$header' \
                 "
 
@@ -547,12 +541,12 @@ fgb() {
             # Remove the first and the last characters (brackets)
             branch="${branch:1:-1}"
             case $key in
-                "$del_key") __fgb_git_branch_delete "$(sed 1d <<< "$lines")" ;;
-                "$extend_del_key")
+                "$c_del_key") __fgb_git_branch_delete "$(sed 1d <<< "$lines")" ;;
+                "$c_extend_del_key")
                     c_extend_del=true
                     __fgb_git_branch_delete "$(sed 1d <<< "$lines")"
                     ;;
-                "$info_key")
+                "$c_info_key")
                     __fgb_print_branch_info "$branch"
                     ;;
                 *)
@@ -999,30 +993,23 @@ fgb() {
             __fgb_set_spacer_var "worktree"
 
             local \
-                del_key="ctrl-d" \
-                extend_del_key="ctrl-alt-d" \
-                info_key="ctrl-o" \
-                verbose_key="ctrl-v" \
-                column_branch="Branch" \
                 spacer_branch=" " \
-                column_author="Author" \
                 spacer_author=" " \
-                column_date="Date" \
                 header_column_names_row
 
             spacer_branch="$(
-                printf "%$(( c_branch_width + 2 - ${#column_branch} + c_spacer ))s" " "
+                printf "%$(( c_branch_width + 2 - ${#c_column_branch} + c_spacer ))s" " "
             )"
-            spacer_author="$(printf "%$(( c_author_width - ${#column_author} + c_spacer ))s" " ")"
+            spacer_author="$(printf "%$(( c_author_width - ${#c_column_author} + c_spacer ))s" " ")"
 
-            header_column_names_row="${column_branch}${spacer_branch}"
+            header_column_names_row="${c_column_branch}${spacer_branch}"
             [[ "$c_show_author" == true ]] && \
-                header_column_names_row+="${column_author}${spacer_author}"
-            [[ "$c_show_date" == true ]] && header_column_names_row+="$column_date"
+                header_column_names_row+="${c_column_author}${spacer_author}"
+            [[ "$c_show_date" == true ]] && header_column_names_row+="$c_column_date"
 
             local header="Add a Git Worktree:"
-            header+=" ${del_key}:del"
-            header+=", ${extend_del_key}:extended-del, ${info_key}:info, ${verbose_key}:verbose"
+            header+=" ${c_del_key}:del"
+            header+=", ${c_extend_del_key}:extended-del, ${c_info_key}:info, ${c_verbose_key}:verbose"
             [[ -n "$c_bind_keys" ]] && header+=", $c_bind_keys"
             header+=$(__fgb_stdout_unindented "
                 |
@@ -1030,7 +1017,7 @@ fgb() {
             ")
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
-                    --expect='"$del_key,$extend_del_key,$info_key,$verbose_key"' \
+                    --expect='"$c_del_key,$c_extend_del_key,$c_info_key,$c_verbose_key"' \
                     --header '$header' \
                 "
 
@@ -1048,17 +1035,17 @@ fgb() {
 
             branch="$(tail -1 <<< "$lines")"
             case $key in
-                "$del_key") __fgb_git_branch_delete "$(sed 1d <<< "$lines")" ;;
-                "$extend_del_key")
+                "$c_del_key") __fgb_git_branch_delete "$(sed 1d <<< "$lines")" ;;
+                "$c_extend_del_key")
                     c_extend_del=true
                     __fgb_git_branch_delete "$(sed 1d <<< "$lines")"
                     ;;
-                "$info_key")
+                "$c_info_key")
                     # Remove the first and the last characters (brackets)
                     branch="${branch:1:-1}"
                     __fgb_print_branch_info "$branch"
                     ;;
-                "$verbose_key") c_confirmed=false; __fgb_git_worktree_jump_or_add "$branch" ;;
+                "$c_verbose_key") c_confirmed=false; __fgb_git_worktree_jump_or_add "$branch" ;;
                 *) __fgb_git_worktree_jump_or_add "$branch" ;;
             esac
         }
@@ -1070,21 +1057,14 @@ fgb() {
             __fgb_set_spacer_var "worktree"
 
             local \
-                del_key="ctrl-d" \
-                extend_del_key="ctrl-alt-d" \
-                info_key="ctrl-o" \
-                verbose_key="ctrl-v" \
-                column_branch="Branch" \
                 spacer_branch=" " \
                 column_wt="WT" \
                 spacer_wt=" " \
-                column_author="Author" \
                 spacer_author=" " \
-                column_date="Date" \
                 header_column_names_row
 
             spacer_branch="$(
-                printf "%$(( c_branch_width + 2 - ${#column_branch} + c_spacer ))s" " "
+                printf "%$(( c_branch_width + 2 - ${#c_column_branch} + c_spacer ))s" " "
             )"
             if [[ "$c_show_wt_path" == true ]]; then
                 spacer_wt="$(printf "%$(( c_wt_path_width - ${#column_wt} + c_spacer ))s" " ")"
@@ -1092,18 +1072,18 @@ fgb() {
                 column_wt="W"
                 spacer_wt="$(printf "%$(( 1 - ${#column_wt} + c_spacer ))s" " ")"
             fi
-            spacer_author="$(printf "%$(( c_author_width - ${#column_author} + c_spacer ))s" " ")"
+            spacer_author="$(printf "%$(( c_author_width - ${#c_column_author} + c_spacer ))s" " ")"
 
-            header_column_names_row="${column_branch}${spacer_branch}"
+            header_column_names_row="${c_column_branch}${spacer_branch}"
             [[ "$c_show_wt_path" == true || "$c_show_wt_flag" == true ]] && \
                 header_column_names_row+="${column_wt}${spacer_wt}"
             [[ "$c_show_author" == true ]] && \
-                header_column_names_row+="${column_author}${spacer_author}"
-            [[ "$c_show_date" == true ]] && header_column_names_row+="$column_date"
+                header_column_names_row+="${c_column_author}${spacer_author}"
+            [[ "$c_show_date" == true ]] && header_column_names_row+="$c_column_date"
 
             local header="Manage Git Worktrees (total):"
-            header+=" ${del_key}:del"
-            header+=", ${extend_del_key}:extended-del, ${info_key}:info, ${verbose_key}:verbose"
+            header+=" ${c_del_key}:del"
+            header+=", ${c_extend_del_key}:extended-del, ${c_info_key}:info, ${c_verbose_key}:verbose"
             [[ -n "$c_bind_keys" ]] && header+=", $c_bind_keys"
             header+=$(__fgb_stdout_unindented "
                 |
@@ -1111,7 +1091,7 @@ fgb() {
             ")
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
-                    --expect='"$del_key,$extend_del_key,$info_key,$verbose_key"' \
+                    --expect='"$c_del_key,$c_extend_del_key,$c_info_key,$c_verbose_key"' \
                     --header '$header' \
                 "
 
@@ -1125,17 +1105,17 @@ fgb() {
 
             local branch; branch="$(tail -1 <<< "$lines")"
             case $key in
-                "$del_key") __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" ;;
-                "$extend_del_key")
+                "$c_del_key") __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" ;;
+                "$c_extend_del_key")
                     c_extend_del=true
                     __fgb_git_worktree_delete "$(sed 1d <<< "$lines")"
                     ;;
-                "$info_key")
+                "$c_info_key")
                     # Remove the first and the last characters (brackets)
                     branch="${branch:1:-1}"
                     __fgb_print_branch_info "$branch"
                     ;;
-                "$verbose_key") c_confirmed=false; __fgb_git_worktree_jump_or_add "$branch" ;;
+                "$c_verbose_key") c_confirmed=false; __fgb_git_worktree_jump_or_add "$branch" ;;
                 *) __fgb_git_worktree_jump_or_add "$branch" ;;
             esac
         }
@@ -1146,20 +1126,14 @@ fgb() {
             __fgb_set_spacer_var "worktree"
 
             local \
-                del_key="ctrl-d" \
-                extend_del_key="ctrl-alt-d" \
-                info_key="ctrl-o" \
-                column_branch="Branch" \
                 spacer_branch=" " \
                 column_wt="WT" \
                 spacer_wt=" " \
-                column_author="Author" \
                 spacer_author=" " \
-                column_date="Date" \
                 header_column_names_row
 
             spacer_branch="$(
-                printf "%$(( c_branch_width + 2 - ${#column_branch} + c_spacer ))s" " "
+                printf "%$(( c_branch_width + 2 - ${#c_column_branch} + c_spacer ))s" " "
             )"
             if [[ "$c_show_wt_path" == true ]]; then
                 spacer_wt="$(printf "%$(( c_wt_path_width - ${#column_wt} + c_spacer ))s" " ")"
@@ -1167,17 +1141,17 @@ fgb() {
                 column_wt="W"
                 spacer_wt="$(printf "%$(( 1 - ${#column_wt} + c_spacer ))s" " ")"
             fi
-            spacer_author="$(printf "%$(( c_author_width - ${#column_author} + c_spacer ))s" " ")"
+            spacer_author="$(printf "%$(( c_author_width - ${#c_column_author} + c_spacer ))s" " ")"
 
-            header_column_names_row="${column_branch}${spacer_branch}"
+            header_column_names_row="${c_column_branch}${spacer_branch}"
             [[ "$c_show_wt_path" == true  || "$c_show_wt_flag" == true ]] && \
                 header_column_names_row+="${column_wt}${spacer_wt}"
             [[ "$c_show_author" == true ]] && \
-                header_column_names_row+="${column_author}${spacer_author}"
-            [[ "$c_show_date" == true ]] && header_column_names_row+="$column_date"
+                header_column_names_row+="${c_column_author}${spacer_author}"
+            [[ "$c_show_date" == true ]] && header_column_names_row+="$c_column_date"
 
             local header="Manage Git Worktrees:"
-            header+=" ${del_key}:del, ${extend_del_key}:extended-del, ${info_key}:info"
+            header+=" ${c_del_key}:del, ${c_extend_del_key}:extended-del, ${c_info_key}:info"
             [[ -n "$c_bind_keys" ]] && header+=", $c_bind_keys"
             header+=$(__fgb_stdout_unindented "
                 |
@@ -1185,7 +1159,7 @@ fgb() {
             ")
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
-                    --expect='"$del_key,$extend_del_key,$info_key"' \
+                    --expect='"$c_del_key,$c_extend_del_key,$c_info_key"' \
                     --header '$header' \
                 "
 
@@ -1199,12 +1173,12 @@ fgb() {
 
             local branch; branch="$(tail -1 <<< "$lines")"
             case $key in
-                "$del_key") __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" ;;
-                "$extend_del_key")
+                "$c_del_key") __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" ;;
+                "$c_extend_del_key")
                     c_extend_del=true
                     __fgb_git_worktree_delete "$(sed 1d <<< "$lines")"
                     ;;
-                "$info_key")
+                "$c_info_key")
                     # Remove the first and the last characters (brackets)
                     branch="${branch:1:-1}"
                     __fgb_print_branch_info "$branch"
@@ -1407,10 +1381,6 @@ fgb() {
             col_b_bold='\033[1;34m' \
             c_bare_repo_path \
             c_branches="" \
-            c_branch_width=0 \
-            c_author_width=0 \
-            c_total_width=0 \
-            c_date_width=0 \
             c_spacer=1 \
             c_worktree_branches="" \
             c_wt_path_width=0 \
@@ -1428,13 +1398,26 @@ fgb() {
             c_branch_sort_order="${FGB_SORT_ORDER:--committerdate}" \
             c_date_format="${FGB_DATE_FORMAT:-committerdate:relative}" \
             c_author_format="${FGB_AUTHOR_FORMAT:-committername}" \
+            c_del_key="${FGB_BINDKEY_DEL:-ctrl-d}" \
+            c_extend_del_key="${FGB_BINDKEY_EXTEND_DEL:-ctrl-alt-d}" \
+            c_info_key="${FGB_BINDKEY_INFO:-ctrl-o}" \
+            c_verbose_key="${FGB_BINDKEY_VERBOSE:-ctrl-v}" \
+            c_column_branch="Branch" \
+            c_column_author="Author" \
+            c_column_date="Date" \
             c_bind_keys=""
 
-            local c_split_char=$'\x1f' # (ASCII 31, Unit Separator)
-
-            # Extract all --bind keys specified in FZF arguments so far to add them to the header
-            c_bind_keys="$(echo "$FZF_CMD_GLOB" | tr ' ' '\n' | grep -- '--bind' |
+        # Extract all --bind keys specified in FZF arguments so far to add them to the header
+        c_bind_keys="$(echo "$FZF_CMD_GLOB" | tr ' ' '\n' | grep -- '--bind' |
                 cut -d'=' -f2 | tr '\n' ',' | sed 's/,$//;s/,/, /g')"
+
+        local \
+            c_branch_width="${#c_column_branch}" \
+            c_author_width="${#c_column_author}" \
+            c_date_width="${#c_column_date}" \
+            c_total_width=0
+
+        local c_split_char=$'\x1f' # (ASCII 31, Unit Separator)
 
         local -A \
             c_branch_author_map \
