@@ -55,7 +55,7 @@ The default branches sort order is `-committerdate`, but this can be overridden 
 
 Similarly, the default date format is `committerdate:relative`, which can be overridden using `FGB_DATE_FORMAT`.
 
-Lastly, the default author format is `committername`, overrideable with `FGB_AUTHOR_FORMAT`.
+Lastly, the default author format is `committername`, could be redefined with `FGB_AUTHOR_FORMAT`.
 
 ### Lazy Load
 
@@ -119,7 +119,8 @@ that wrap the `lazy_fgb` function call with corresponding commands, subcommands,
 
 Here’s how it works:
 
-Lazy Loading Function `lazy_fgb`: On its first call, `lazy_fgb` unsets itself and all related functions. It then sources the `fzf-git-branches.sh` script to load its functionality.
+Lazy Loading Function `lazy_fgb`: On its first call, `lazy_fgb` unsets itself and all related functions.
+It then sources the `fzf-git-branches.sh` script to load its functionality.
 
 Lazy Loading Function (lazy_fgb):
 Upon its initial invocation, `lazy_fgb` unsets itself and all associated functions.
@@ -168,11 +169,13 @@ This will open a fzf interface to manage your Git branches.
 
 ### Key Bindings
 
-Default key bindings that can be overridden by an environment variable:
+Default key bindings that can be overridden by `FGB_FZF_OPTS` environment variable:
 - `enter/ctrl-y`: Select the branch/worktree to jump to.
 - `ctrl-t`: Toggle the selection.
 
-After invoking fzf, the following keybindings are expected (hard-coded by design):
+After invoking fzf, the following key bindings are expected (and can be redefined by the <br/>
+`FGB_BINDKEY_DEL`, `FGB_BINDKEY_EXTEND_DEL`, `FGB_BINDKEY_INFO`, `FGB_BINDKEY_VERBOSE`
+environment variables respectively):
 - `ctrl-d`: Delete the selected branch.
     <details>
       <summary>Screenshot</summary>
@@ -194,6 +197,14 @@ After invoking fzf, the following keybindings are expected (hard-coded by design
       <summary>Screenshot</summary>
 
     ![image](https://github.com/awerebea/fzf-git-branches/assets/63558838/0581fe20-f60b-4881-b605-010bf23dacff)
+    </details>
+
+- `ctrl-v`: Use _verbose_ mode to prompt for user confirmation of the directory name for the new worktree,
+    even when this confirmation is suppressed by the `-c, --confirm` option.
+    <details>
+      <summary>Screenshot</summary>
+
+    ![image](https://github.com/awerebea/fzf-git-branches/assets/63558838/4937c29e-c2e2-4d77-b61d-5089c8704207)
     </details>
 
 ### Available Commands and Subcommands
