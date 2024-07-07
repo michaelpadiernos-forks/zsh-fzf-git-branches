@@ -571,12 +571,65 @@ fgb() {
             fi
 
             local input_string="$1"
-
-            local input_string="$1"
             if [[ "$input_string" =~ %\\([^\)]*[a-zA-Z0-9_]+[^\)]*\\) ]]; then
                 printf "%s" "$input_string"
             else
                 printf "%%(%s)" "$input_string"
+            fi
+        }
+
+        __fgb_convert_git_format_string() {
+            # Convert the Git format string compatible with for-each-ref command to the one
+            # compatible with log command
+
+            if [[ $# -ne 1 ]]; then
+                echo "$0 error: missing argument: input Git format string" >&2
+                return 1
+            fi
+
+            local input_string="$1"
+
+            # Perform substitutions
+            input_string="${input_string//\%\(authorname\)/%an}"
+            input_string="${input_string//\%\(authoremail\)/<%ae>}"
+            input_string="${input_string//\%\(committername\)/%cn}"
+            input_string="${input_string//\%\(committeremail\)/<%ce>}"
+
+
+            local date_formats="relative|local|default|iso|iso-strict|rfc|short|raw|"
+            date_formats+="relative-local|default-local|iso-local|iso-strict-local|"
+            date_formats+="rfc-local|short-local|raw-local"
+
+            local regexp="%\((authordate|committerdate):(format:[^)]+|$date_formats)\)"
+
+            input_string="$(sed -E "s/$regexp/%(\1)/g" <<< "$input_string")"
+            input_string="${input_string//\%\(authordate\)/"$c_split_char"%ad"$c_split_char"}"
+            input_string="${input_string//\%\(committerdate\)/"$c_split_char"%cd"$c_split_char"}"
+
+            echo "$input_string"
+        }
+
+        __fgb_extract_date_format() {
+            # Extract the date format from the Git for-each-ref compatible foramt string
+
+            if [[ $# -ne 1 ]]; then
+                echo "$0 error: missing argument: input Git format string" >&2
+                return 1
+            fi
+
+            local input_string="$1"
+
+            local date_formats="relative|local|default|iso|iso-strict|rfc|short|raw|"
+            date_formats+="relative-local|default-local|iso-local|iso-strict-local|"
+            date_formats+="rfc-local|short-local|raw-local"
+
+            local regexp="%\((authordate|committerdate):(format:[^)]+|$date_formats)\)"
+
+            extracted="$(grep -oE "$regexp" <<< "$input_string")"
+
+            if [[ -n "$extracted" ]]; then
+                sed -E "s/$regexp/%\1$c_split_char\2/" <<< "$extracted" |
+                    sed 's/authordate/ad/;s/committerdate/cd/'
             fi
         }
 
@@ -848,21 +901,26 @@ fgb() {
                 branch_name="$1" \
                 remote_branch \
                 wt_path \
-                message
+                message \
+                ref_prefix
             # shellcheck disable=SC2053
             if [[ "$branch_name" == "$c_bracket_rem_open"*/*"$c_bracket_rem_close" ]]; then
                 # Remove the first and the last characters (brackets)
                 remote_branch="${branch_name:1}"; remote_branch="${remote_branch%?}"
                 # Remove the first segment of the reference name (<upstream>/)
                 branch_name="${remote_branch#*/}"
+                ref_prefix="refs/remotes/"
             elif [[ "$branch_name" == "$c_bracket_loc_open"*"$c_bracket_loc_close" ]]; then
-                # Remove the first and the last characters (brackets)
                 branch_name="${branch_name:1}"; branch_name="${branch_name%?}"
+                ref_prefix="refs/heads/"
+            elif [[ "$branch_name" == "$c_bracket_det_open"*"$c_bracket_det_close" ]]; then
+                branch_name="${branch_name:1}"; branch_name="${branch_name%?}"
+                ref_prefix="$c_detached_wt_prefix"
             else
                 echo "error: invalid branch name pattern: $branch_name" >&2
                 return 1
             fi
-            wt_path="$(git worktree list | grep " \[${branch_name}\]$" | cut -d' ' -f1)"
+            wt_path="${c_worktree_path_map["$ref_prefix$branch_name"]}"
             if [[ -n "$wt_path" ]]; then
                 cd "$wt_path" || return 1
                 message=$(__fgb_stdout_unindented "
@@ -932,6 +990,11 @@ fgb() {
                     branch_name="${branch_name#*/}"; branch_name="${branch_name#*/}"
                     # Define the bracket characters
                     bracket_open="$c_bracket_rem_open" bracket_close="$c_bracket_rem_close"
+                elif [[ "$branch" == "$c_detached_wt_prefix"* ]]; then
+                    # Remove first two segments of the reference name
+                    branch_name="${branch_name#*/}"; branch_name="${branch_name#*/}"
+                    # Define the bracket characters
+                    bracket_open="$c_bracket_det_open" bracket_close="$c_bracket_det_close"
                 fi
                 # Adjust the branch name column width based on the number of color code characters
                 printf \
@@ -1200,7 +1263,7 @@ fgb() {
             )"
 
             local wt_list; wt_list="$(git worktree list --porcelain | sed '1,3d' |
-                awk -v split_char="$c_split_char" '
+                awk -v split_char="$c_split_char" -v ref_prefix="$c_detached_wt_prefix" '
                     /^worktree/ {
                         path = $2
                     }
@@ -1212,17 +1275,12 @@ fgb() {
                         printf "%s%s%s\n", path, split_char, branch
                     }
                     /^detached/ {
-                        printf "%s%srefs/detached/%.7s\n", path, split_char, hash
+                        printf "%s%s%s%.7s\n", path, split_char, ref_prefix, hash
                 }')"
 
             c_worktree_branches="$(
                 awk -v split_char="$c_split_char" -F"$c_split_char" '{print $2}' <<< "$wt_list"
             )"
-
-            local branch_list
-            branch_list="$(__fgb_git_branch_list "local" "$c_worktree_branches")"
-            return_code=$?; [[ $return_code -ne 0 ]] && return "$return_code"
-            __fgb_branch_set_vars "$branch_list"
 
             local \
                 branch \
@@ -1344,6 +1402,68 @@ fgb() {
                     c_branches="$(__fgb_git_branch_list "$branch_type" "$filter_list")"
                     return_code=$?; [[ $return_code -ne 0 ]] && return "$return_code"
 
+                    local detached_wt
+                    detached_wt="$(grep "^$c_detached_wt_prefix" <<< "$c_worktree_branches")"
+
+                    # shellcheck disable=SC2076
+                    if [[ -n "$detached_wt" && " local all " =~ " $branch_type " ]]; then
+                        local \
+                            line \
+                            hash \
+                            wt_hash_data \
+                            author_format \
+                            date_format \
+                            log_format \
+                            log_date \
+                            log_output \
+                            detached_wt_data=""
+
+                        # Git's iso-strict format
+                        local regexp='\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}'
+                        regexp+='T[0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}[+-][0-9]\{2\}:[0-9]\{2\}\)'
+
+                        author_format="$(__fgb_convert_git_format_string "$c_author_format")"
+                        date_format="$(__fgb_convert_git_format_string "$c_date_format")"
+
+                        dates_with_format="$(__fgb_extract_date_format "$c_author_format")"
+                        dates_with_format="${dates_with_format}$(
+                            __fgb_extract_date_format "$c_date_format"
+                        )"
+
+                        while IFS= read -r line; do
+                            hash="${line#"$c_detached_wt_prefix"}"
+                            wt_hash_data="$(
+                                git log -1 \
+                                    --pretty=format:"$(printf '%s%b%s' \
+                                        "$author_format" \
+                                        "$c_split_char" \
+                                        "$date_format")" \
+                                    --date=iso-strict \
+                                    "$hash"
+                            )"
+                            while IFS= read -r dates_data; do
+                                log_format="${dates_data%%"$c_split_char"*}"
+                                log_date="${dates_data##*"$c_split_char"}"
+                                log_output="$(git log -1 \
+                                    --pretty=format:"$log_format" \
+                                    --date="$log_date" \
+                                    "$hash"
+                                )"
+                                wt_hash_data="$(
+                                    sed "s/$c_split_char$regexp$c_split_char/$log_output/" <<< \
+                                        "$wt_hash_data"
+                                )"
+                            done <<< "$dates_with_format"
+                            c_branches="$line$c_split_char$wt_hash_data
+                                $c_branches"
+                        done <<< "$detached_wt"
+                    fi
+
+                    # Remove leading spaces
+                    c_branches="$(sed 's/^[[:space:]]*//' <<< "$c_branches")"
+
+                    __fgb_branch_set_vars "$c_branches"
+
                     case "$subcommand" in
                         add) __fgb_worktree_add "${fzf_query[@]}" ;;
                         list) __fgb_worktree_list ;;
@@ -1392,6 +1512,8 @@ fgb() {
             c_bracket_loc_close="]" \
             c_bracket_rem_open="(" \
             c_bracket_rem_close=")" \
+            c_bracket_det_open="{" \
+            c_bracket_det_close="}" \
             c_force=false \
             c_extend_del=false \
             c_confirmed=false \
@@ -1405,7 +1527,8 @@ fgb() {
             c_column_branch="Branch" \
             c_column_author="Author" \
             c_column_date="Date" \
-            c_bind_keys=""
+            c_bind_keys="" \
+            c_detached_wt_prefix="detached/heads/"
 
         # Extract all --bind keys specified in FZF arguments so far to add them to the header
         c_bind_keys="$(echo "$FZF_CMD_GLOB" | tr ' ' '\n' | grep -- '--bind' |
@@ -1717,6 +1840,8 @@ fgb() {
         __fgb_branch_manage \
         __fgb_branch_set_vars \
         __fgb_confirmation_dialog \
+        __fgb_convert_git_format_string \
+        __fgb_extract_date_format \
         __fgb_git_branch_delete \
         __fgb_git_branch_list \
         __fgb_git_worktree_delete \
@@ -1729,8 +1854,8 @@ fgb() {
         __fgb_worktree_add \
         __fgb_worktree_list \
         __fgb_worktree_manage \
-        __fgb_worktree_total \
-        __fgb_worktree_set_vars
+        __fgb_worktree_set_vars \
+        __fgb_worktree_total
 
     return "$exit_code"
 }
