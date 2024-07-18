@@ -489,6 +489,37 @@ fgb() {
             done
         }
 
+        __fgb_git_branch_new() {
+            # Create a fork from the selected branch
+
+            if [[ $# -eq 0 ]]; then
+                echo "$0 error: missing arguments: branch_name, branch_type" >&2
+                return 1
+            elif [[ $# -lt 2 ]]; then
+                echo "$0 error: missing argument: branch_type" >&2
+                return 1
+            fi
+
+            local branch_name="$1"
+            local branch_type="$2"
+
+            printf "%b\n" "$(__fgb_stdout_unindented "
+            |Fork the branch '${col_b_bold}${branch_name}${col_reset}' and switch to it.
+            ")"
+            local message="Enter a name for the new branch: "
+            local new_branch="$branch_name"
+            if [[ "$branch_type" == "remote" ]]; then
+                new_branch="${new_branch#*/}"
+            fi
+            new_branch+="_fork"
+            if [[ -n "${ZSH_VERSION-}" ]]; then
+                vared -p "$message" new_branch
+            else
+                IFS= read -re -p "$message" -i "$new_branch" new_branch
+            fi
+            git switch -c "$new_branch" "$branch_name"
+        }
+
         __fgb_branch_manage() {
             # Manage Git branches
 
@@ -509,6 +540,7 @@ fgb() {
 
             local header="Manage Git Branches:"
             header+=" ${c_del_key}:del, ${c_extend_del_key}:extended-del, ${c_info_key}:info"
+            header+=", ${c_new_branch_key}:fork"
             [[ -n "$c_bind_keys" ]] && header+=", $c_bind_keys"
             header+=$(__fgb_stdout_unindented "
                 |
@@ -516,7 +548,7 @@ fgb() {
             ")
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
-                    --expect='"$c_del_key,$c_extend_del_key,$c_info_key"' \
+                    --expect='"$c_del_key,$c_extend_del_key,$c_info_key,$c_new_branch_key"' \
                     --header '$header' \
                 "
 
@@ -535,9 +567,16 @@ fgb() {
             if [[ "$branch" == "$c_bracket_rem_open"*/*"$c_bracket_rem_close" ]]; then
                 is_remote=true
             elif [[ "$branch" != "$c_bracket_loc_open"*"$c_bracket_loc_close" ]]; then
-                echo "error: invalid branch name pattern: $branch_name" >&2
+                echo "error: invalid branch name pattern: $branch" >&2
                 return 1
             fi
+
+            local branch_type="" bracket_open="${branch:0:1}"
+            case "$bracket_open" in
+                "$c_bracket_loc_open") branch_type="local" ;;
+                "$c_bracket_rem_open") branch_type="remote" ;;
+            esac
+
             # Remove the first and the last characters (brackets)
             branch="${branch:1:-1}"
             case $key in
@@ -548,6 +587,9 @@ fgb() {
                     ;;
                 "$c_info_key")
                     __fgb_print_branch_info "$branch"
+                    ;;
+                "$c_new_branch_key")
+                    __fgb_git_branch_new "$branch" "$branch_type"
                     ;;
                 *)
                     if ! git rev-parse --show-toplevel &>/dev/null; then
@@ -1523,6 +1565,7 @@ fgb() {
             c_extend_del_key="${FGB_BINDKEY_EXTEND_DEL:-ctrl-alt-d}" \
             c_info_key="${FGB_BINDKEY_INFO:-ctrl-o}" \
             c_verbose_key="${FGB_BINDKEY_VERBOSE:-ctrl-v}" \
+            c_new_branch_key="${FGB_BINDKEY_NEW_BRANCH:-alt-n}" \
             c_column_branch="Branch" \
             c_column_author="Author" \
             c_column_date="Date" \
@@ -1843,6 +1886,7 @@ fgb() {
         __fgb_extract_date_format \
         __fgb_git_branch_delete \
         __fgb_git_branch_list \
+        __fgb_git_branch_new \
         __fgb_git_worktree_delete \
         __fgb_git_worktree_jump_or_add \
         __fgb_print_branch_info \
