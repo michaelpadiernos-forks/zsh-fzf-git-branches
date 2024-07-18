@@ -1415,8 +1415,7 @@ fgb() {
                             date_format \
                             log_format \
                             log_date \
-                            log_output \
-                            detached_wt_data=""
+                            log_output
 
                         # Git's iso-strict format
                         local regexp='\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}'
