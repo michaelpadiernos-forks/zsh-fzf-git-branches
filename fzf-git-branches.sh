@@ -503,9 +503,7 @@ fgb() {
             local branch_name="$1"
             local branch_type="$2"
 
-            printf "%b\n" "$(__fgb_stdout_unindented "
-            |Fork the branch '${col_b_bold}${branch_name}${col_reset}' and switch to it.
-            ")"
+            echo "Fork the branch '${col_b_bold}${branch_name}${col_reset}' and switch to it."
             local message="Enter a name for the new branch: "
             local new_branch="$branch_name"
             if [[ "$branch_type" == "remote" ]]; then
@@ -517,7 +515,9 @@ fgb() {
             else
                 IFS= read -re -p "$message" -i "$new_branch" new_branch
             fi
-            git switch -c "$new_branch" "$branch_name"
+
+            git switch -c "$new_branch" "$branch_name" >/dev/null &&
+                c_new_branch="${c_bracket_loc_open}${new_branch}${c_bracket_loc_close}"
         }
 
         __fgb_branch_manage() {
@@ -571,8 +571,8 @@ fgb() {
                 return 1
             fi
 
-            local branch_type="" bracket_open="${branch:0:1}"
-            case "$bracket_open" in
+            local branch_type=""
+            case "${branch:0:1}" in
                 "$c_bracket_loc_open") branch_type="local" ;;
                 "$c_bracket_rem_open") branch_type="remote" ;;
             esac
@@ -1001,7 +1001,10 @@ fgb() {
                     [[ "$wt_path" != /* ]] && wt_path="${c_bare_repo_path}/${wt_path}"
                     wt_path="$(readlink -m "$wt_path")" # Normalize the path
                 fi
-                if git worktree add "$wt_path" "$branch_name"; then
+                local output return_code
+                output="$(git worktree add "$wt_path" "$branch_name" 2>&1)"
+                return_code=$?
+                if [[ $return_code -eq 0 ]]; then
                     cd "$wt_path" || return 1
                     message=$(__fgb_stdout_unindented "
                         |Worktree ${col_y_bold}${wt_path}${col_reset} \#
@@ -1009,6 +1012,9 @@ fgb() {
                         |${col_g_bold}Jumped${col_reset} there.
                     ")
                     echo -e "$message"
+                else
+                    echo "$output"
+                    return "$return_code"
                 fi
             fi
         }
@@ -1073,6 +1079,60 @@ fgb() {
             done <<< "$c_branches"
         }
 
+        __fgb_git_worktree_for_new_branch() {
+            # Create a worktree for a new branch
+
+            if [[ -n "$c_new_branch" ]]; then
+                git switch - &>/dev/null
+                if "$c_confirmed"; then
+                    local temp_file; temp_file=$(mktemp)
+
+                    # Redirect all output of the command into the temporary file
+                    exec 3>&1 1>"$temp_file" 2>&1
+
+                    __fgb_git_worktree_jump_or_add "$c_new_branch"
+                    local return_code=$?
+
+                    # Restore the original file descriptors
+                    exec 1>&3 3>&-
+
+                    local output; output=$(cat "$temp_file")
+                    rm "$temp_file"
+                    if [[ $return_code -ne 0 ]]; then
+                        local error_pattern="^fatal: '.*/${c_new_branch:1:-1}' already exists$"
+                        if ! grep -q "$error_pattern" <<< "$output"; then
+                            echo "$output" >&2
+                            return "$return_code"
+                        else
+                            local user_prompt
+                            user_prompt=$(__fgb_stdout_unindented "
+                                |
+                                |${col_r_bold}WARNING:${col_reset} \#
+                                |The path \#
+                                |'${col_y_bold}${c_bare_repo_path}\#
+                                |/${c_new_branch:1:-1}${col_reset}' \#
+                                |is already exists.
+                                |
+                                |Would you like to enter another path?
+                            ")
+                            if __fgb_confirmation_dialog "$user_prompt"; then
+                                c_confirmed=false
+                                __fgb_git_worktree_jump_or_add "$c_new_branch" ||
+                                    __fgb_git_branch_delete "$c_new_branch"
+                            else
+                                __fgb_git_branch_delete "$c_new_branch"
+                            fi
+                        fi
+                    else
+                        echo "$output"
+                        return "$return_code"
+                    fi
+                else
+                    __fgb_git_worktree_jump_or_add "$c_new_branch"
+                fi
+            fi
+        }
+
         __fgb_worktree_add() {
             # Add a new worktree for a given branch
 
@@ -1115,14 +1175,20 @@ fgb() {
             local header="Add a Git Worktree:"
             header+=" ${c_del_key}:del"
             header+=", ${c_extend_del_key}:extended-del, ${c_info_key}:info, ${c_verbose_key}:verbose"
+            header+=", ${c_new_branch_key}:fork"
             [[ -n "$c_bind_keys" ]] && header+=", $c_bind_keys"
             header+=$(__fgb_stdout_unindented "
                 |
                 |$header_column_names_row
             ")
+
+            local expected_keys="$c_del_key,$c_extend_del_key,$c_info_key,$c_verbose_key"
+            expected_keys+=",$c_new_branch_key"
+
+            # shellcheck disable=SC2027
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
-                    --expect='"$c_del_key,$c_extend_del_key,$c_info_key,$c_verbose_key"' \
+                    --expect='"$expected_keys"' \
                     --header '$header' \
                 "
 
@@ -1137,8 +1203,14 @@ fgb() {
             [[ -z "$lines" ]] && return
 
             local key; key="$(head -1 <<< "$lines")"
-
             branch="$(tail -1 <<< "$lines")"
+            local branch_type=""
+
+            case "${branch:0:1}" in
+                "$c_bracket_loc_open") branch_type="local" ;;
+                "$c_bracket_rem_open") branch_type="remote" ;;
+            esac
+
             case $key in
                 "$c_del_key") __fgb_git_branch_delete "$(sed 1d <<< "$lines")" ;;
                 "$c_extend_del_key")
@@ -1151,6 +1223,12 @@ fgb() {
                     __fgb_print_branch_info "$branch"
                     ;;
                 "$c_verbose_key") c_confirmed=false; __fgb_git_worktree_jump_or_add "$branch" ;;
+                "$c_new_branch_key")
+                    local return_code
+                    __fgb_git_branch_new "${branch:1:-1}" "$branch_type"
+                    return_code=$?; [[ $return_code -ne 0 ]] && return "$return_code"
+                    __fgb_git_worktree_for_new_branch
+                    ;;
                 *) __fgb_git_worktree_jump_or_add "$branch" ;;
             esac
         }
@@ -1189,14 +1267,20 @@ fgb() {
             local header="Manage Git Worktrees (total):"
             header+=" ${c_del_key}:del"
             header+=", ${c_extend_del_key}:extended-del, ${c_info_key}:info, ${c_verbose_key}:verbose"
+            header+=", ${c_new_branch_key}:fork"
             [[ -n "$c_bind_keys" ]] && header+=", $c_bind_keys"
             header+=$(__fgb_stdout_unindented "
                 |
                 |$header_column_names_row
             ")
+
+            local expected_keys="$c_del_key,$c_extend_del_key,$c_info_key,$c_verbose_key"
+            expected_keys+=",$c_new_branch_key"
+
+            # shellcheck disable=SC2027
             local fzf_cmd="\
                 $FZF_CMD_GLOB \
-                    --expect='"$c_del_key,$c_extend_del_key,$c_info_key,$c_verbose_key"' \
+                    --expect='"$expected_keys"' \
                     --header '$header' \
                 "
 
@@ -1207,8 +1291,14 @@ fgb() {
             [[ -z "$lines" ]] && return
 
             local key; key="$(head -1 <<< "$lines")"
-
             local branch; branch="$(tail -1 <<< "$lines")"
+            local branch_type=""
+
+            case "${branch:0:1}" in
+                "$c_bracket_loc_open") branch_type="local" ;;
+                "$c_bracket_rem_open") branch_type="remote" ;;
+            esac
+
             case $key in
                 "$c_del_key") __fgb_git_worktree_delete "$(sed 1d <<< "$lines")" ;;
                 "$c_extend_del_key")
@@ -1221,6 +1311,12 @@ fgb() {
                     __fgb_print_branch_info "$branch"
                     ;;
                 "$c_verbose_key") c_confirmed=false; __fgb_git_worktree_jump_or_add "$branch" ;;
+                "$c_new_branch_key")
+                    local return_code
+                    __fgb_git_branch_new "${branch:1:-1}" "$branch_type"
+                    return_code=$?; [[ $return_code -ne 0 ]] && return "$return_code"
+                    __fgb_git_worktree_for_new_branch
+                    ;;
                 *) __fgb_git_worktree_jump_or_add "$branch" ;;
             esac
         }
@@ -1570,7 +1666,8 @@ fgb() {
             c_column_author="Author" \
             c_column_date="Date" \
             c_bind_keys="" \
-            c_detached_wt_prefix="detached/heads/"
+            c_detached_wt_prefix="detached/heads/" \
+            c_new_branch=""
 
         # Extract all --bind keys specified in FZF arguments so far to add them to the header
         c_bind_keys="$(echo "$FZF_CMD_GLOB" | tr ' ' '\n' | grep -- '--bind' |
@@ -1888,6 +1985,7 @@ fgb() {
         __fgb_git_branch_list \
         __fgb_git_branch_new \
         __fgb_git_worktree_delete \
+        __fgb_git_worktree_for_new_branch \
         __fgb_git_worktree_jump_or_add \
         __fgb_print_branch_info \
         __fgb_set_spacer_var \
