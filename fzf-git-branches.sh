@@ -502,6 +502,7 @@ fgb() {
 
             local branch_name="$1"
             local branch_type="$2"
+            local for_new_worktree="${3:-false}"
 
             echo "Fork the branch '${col_b_bold}${branch_name}${col_reset}' and switch to it."
             local message="Enter a name for the new branch: "
@@ -516,7 +517,15 @@ fgb() {
                 IFS= read -re -p "$message" -i "$new_branch" new_branch
             fi
 
-            git switch -c "$new_branch" "$branch_name" >/dev/null &&
+            local return_code
+            if "$for_new_worktree"; then
+                git branch "$new_branch" "$branch_name"
+                return_code=$?
+            else
+                git switch -c "$new_branch" "$branch_name" >/dev/null
+                return_code=$?
+            fi
+            [[ $return_code -eq 0 ]] &&
                 c_new_branch="${c_bracket_loc_open}${new_branch}${c_bracket_loc_close}"
         }
 
@@ -1083,7 +1092,7 @@ fgb() {
             # Create a worktree for a new branch
 
             if [[ -n "$c_new_branch" ]]; then
-                git switch - &>/dev/null
+                echo "Switched to a new branch '${c_new_branch:1:-1}'"
                 if "$c_confirmed"; then
                     local temp_file; temp_file=$(mktemp)
 
@@ -1224,8 +1233,8 @@ fgb() {
                     ;;
                 "$c_verbose_key") c_confirmed=false; __fgb_git_worktree_jump_or_add "$branch" ;;
                 "$c_new_branch_key")
-                    local return_code
-                    __fgb_git_branch_new "${branch:1:-1}" "$branch_type"
+                    local return_code for_new_worktree=true
+                    __fgb_git_branch_new "${branch:1:-1}" "$branch_type" "$for_new_worktree"
                     return_code=$?; [[ $return_code -ne 0 ]] && return "$return_code"
                     __fgb_git_worktree_for_new_branch
                     ;;
@@ -1312,8 +1321,8 @@ fgb() {
                     ;;
                 "$c_verbose_key") c_confirmed=false; __fgb_git_worktree_jump_or_add "$branch" ;;
                 "$c_new_branch_key")
-                    local return_code
-                    __fgb_git_branch_new "${branch:1:-1}" "$branch_type"
+                    local return_code for_new_worktree=true
+                    __fgb_git_branch_new "${branch:1:-1}" "$branch_type" "$for_new_worktree"
                     return_code=$?; [[ $return_code -ne 0 ]] && return "$return_code"
                     __fgb_git_worktree_for_new_branch
                     ;;
