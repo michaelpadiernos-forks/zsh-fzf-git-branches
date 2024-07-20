@@ -1091,54 +1091,56 @@ fgb() {
         __fgb_git_worktree_for_new_branch() {
             # Create a worktree for a new branch
 
-            if [[ -n "$c_new_branch" ]]; then
-                echo "Switched to a new branch '${c_new_branch:1:-1}'"
-                if "$c_confirmed"; then
-                    local temp_file; temp_file=$(mktemp)
+            if [[ -z "$c_new_branch" ]]; then
+                return
+            fi
 
-                    # Redirect all output of the command into the temporary file
-                    exec 3>&1 1>"$temp_file" 2>&1
+            echo "Switched to a new branch '${c_new_branch:1:-1}'"
+            if "$c_confirmed"; then
+                local temp_file; temp_file=$(mktemp)
 
-                    __fgb_git_worktree_jump_or_add "$c_new_branch"
-                    local return_code=$?
+                # Redirect all output of the command into the temporary file
+                exec 3>&1 1>"$temp_file" 2>&1
 
-                    # Restore the original file descriptors
-                    exec 1>&3 3>&-
+                __fgb_git_worktree_jump_or_add "$c_new_branch"
+                local return_code=$?
 
-                    local output; output=$(cat "$temp_file")
-                    rm "$temp_file"
-                    if [[ $return_code -ne 0 ]]; then
-                        local error_pattern="^fatal: '.*/${c_new_branch:1:-1}' already exists$"
-                        if ! grep -q "$error_pattern" <<< "$output"; then
-                            echo "$output" >&2
-                            return "$return_code"
-                        else
-                            local user_prompt
-                            user_prompt=$(__fgb_stdout_unindented "
-                                |
-                                |${col_r_bold}WARNING:${col_reset} \#
-                                |The path \#
-                                |'${col_y_bold}${c_bare_repo_path}\#
-                                |/${c_new_branch:1:-1}${col_reset}' \#
-                                |is already exists.
-                                |
-                                |Would you like to enter another path?
-                            ")
-                            if __fgb_confirmation_dialog "$user_prompt"; then
-                                c_confirmed=false
-                                __fgb_git_worktree_jump_or_add "$c_new_branch" ||
-                                    __fgb_git_branch_delete "$c_new_branch"
-                            else
-                                __fgb_git_branch_delete "$c_new_branch"
-                            fi
-                        fi
-                    else
-                        echo "$output"
+                # Restore the original file descriptors
+                exec 1>&3 3>&-
+
+                local output; output=$(cat "$temp_file")
+                rm "$temp_file"
+                if [[ $return_code -ne 0 ]]; then
+                    local error_pattern="^fatal: '.*/${c_new_branch:1:-1}' already exists$"
+                    if ! grep -q "$error_pattern" <<< "$output"; then
+                        echo "$output" >&2
                         return "$return_code"
+                    else
+                        local user_prompt
+                        user_prompt=$(__fgb_stdout_unindented "
+                            |
+                            |${col_r_bold}WARNING:${col_reset} \#
+                            |The path \#
+                            |'${col_y_bold}${c_bare_repo_path}\#
+                            |/${c_new_branch:1:-1}${col_reset}' \#
+                            |is already exists.
+                            |
+                            |Would you like to enter another path?
+                        ")
+                        if __fgb_confirmation_dialog "$user_prompt"; then
+                            c_confirmed=false
+                            __fgb_git_worktree_jump_or_add "$c_new_branch" ||
+                                __fgb_git_branch_delete "$c_new_branch"
+                        else
+                            __fgb_git_branch_delete "$c_new_branch"
+                        fi
                     fi
                 else
-                    __fgb_git_worktree_jump_or_add "$c_new_branch"
+                    echo "$output"
+                    return "$return_code"
                 fi
+            else
+                __fgb_git_worktree_jump_or_add "$c_new_branch"
             fi
         }
 
