@@ -886,7 +886,7 @@ fgb() {
                             ")
                             # NOTE: Avoid --force here as it's not undoable operation
                             if __fgb_confirmation_dialog "$user_prompt"; then
-                                if output="$( git worktree remove "$wt_path" --force)"; then
+                                if output="$(git worktree remove "$wt_path" --force)"; then
                                     echo -e "$success_message"
                                 else
                                     echo "$output" >&2
@@ -1088,6 +1088,64 @@ fgb() {
             done <<< "$c_branches"
         }
 
+        __fgb_git_worktree_restore_stash() {
+            # Restore a specific stash to the current worktree or fallback to the initial worktree
+            # if needed
+
+            if ! "$(git rev-parse --is-inside-work-tree)"; then
+                echo "fatal: this operation must be run in a work tree" >&2
+                return 128
+            fi
+
+            if [[ $# -eq 0 ]]; then
+                echo "$0 error: missing arguments: stash_message, init_wt_path" >&2
+                return 1
+            elif [[ $# -lt 2 ]]; then
+                echo "$0 error: missing argument: init_wt_path" >&2
+                return 1
+            fi
+
+            local stash_message="$1"
+            local init_wt_path="$2"
+
+            local stash_id
+            stash_id="$(
+                git -C "$PWD" stash list | grep -F "$stash_message" | head -n 1 | cut -d":" -f1
+            )"
+
+            local output
+            output="$(script -q /dev/null -c "git -C \"$PWD\" stash apply \"$stash_id\" 2>&1")"
+
+            local return_code
+            if grep -Eq "^(ERROR|FAILED|CONFLICT)" <<< "$output"; then
+                return_code=1
+            else
+                return_code=0
+            fi
+
+            if [[ $return_code -ne 0 ]]; then
+                printf "%b\n" "$(__fgb_stdout_unindented "
+                    |
+                    |${col_r_bold}WARNING:${col_reset} \#
+                    |Failed to apply stash to the worktree created for the new branch.
+                    |Restoring stashed changes to the initial worktree.
+                    |
+                    |${col_g}Stash apply output:${col_reset}
+                    |
+                    |$output
+                ")"
+                # Reset the working directory and staging area
+                git -C "$PWD" reset --hard HEAD
+                # Clean untracked files and directories
+                git -C "$PWD" clean -fd
+                git -C "$init_wt_path" stash apply "$stash_id" &>/dev/null
+                git -C "$init_wt_path" stash drop "$stash_id" &>/dev/null
+            else
+                printf "%b\n" "$output"
+                git -C "$PWD" stash drop "$stash_id" &>/dev/null
+            fi
+        }
+
         __fgb_git_worktree_for_new_branch() {
             # Create a worktree for a new branch
 
@@ -1096,6 +1154,39 @@ fgb() {
             fi
 
             echo "Switched to a new branch '${c_new_branch:1:-1}'"
+
+            local \
+                current_date \
+                init_wt_path \
+                stash_created=false \
+                stash_message \
+                user_prompt
+
+            # Check if the current directory is a Git worktree
+            if "$(git rev-parse --is-inside-work-tree)"; then
+                init_wt_path="$PWD"
+                # Check if there are any changes in the working directory
+                if ! git diff --quiet || ! git diff --cached --quiet; then
+                    # Show changed files in the working directory ignoring untracked files
+                    user_prompt=$(__fgb_stdout_unindented "
+                        |
+                        |${col_y_bold}INFO:${col_reset} \#
+                        |The current worktree has uncommitted changes:
+                        |
+                        |$(script -q /dev/null -c "git status --short -uno")
+                        |
+                        |Do you want to try to stash and pop them in a new worktree?
+                    ")
+                    if __fgb_confirmation_dialog "$user_prompt"; then
+                        current_date="$(date +"%Y-%m-%d %H:%M:%S")"
+                        stash_message="[$current_date] Stash to restore in a new worktree"
+                        stash_message+=" for branch '${c_new_branch:1:-1}'"
+                        git stash push -m "$stash_message" && stash_created=true
+                    fi
+                fi
+            fi
+
+            local return_code
             if "$c_confirmed"; then
                 local temp_file; temp_file=$(mktemp)
 
@@ -1103,7 +1194,7 @@ fgb() {
                 exec 3>&1 1>"$temp_file" 2>&1
 
                 __fgb_git_worktree_jump_or_add "$c_new_branch"
-                local return_code=$?
+                return_code=$?
 
                 # Restore the original file descriptors
                 exec 1>&3 3>&-
@@ -1114,9 +1205,7 @@ fgb() {
                     local error_pattern="^fatal: '.*/${c_new_branch:1:-1}' already exists$"
                     if ! grep -q "$error_pattern" <<< "$output"; then
                         echo "$output" >&2
-                        return "$return_code"
                     else
-                        local user_prompt
                         user_prompt=$(__fgb_stdout_unindented "
                             |
                             |${col_r_bold}WARNING:${col_reset} \#
@@ -1129,19 +1218,23 @@ fgb() {
                         ")
                         if __fgb_confirmation_dialog "$user_prompt"; then
                             c_confirmed=false
-                            __fgb_git_worktree_jump_or_add "$c_new_branch" ||
+                            __fgb_git_worktree_jump_or_add "$c_new_branch"
+                            return_code=$?
+                            if [[ $return_code -ne 0 ]]; then
                                 __fgb_git_branch_delete "$c_new_branch"
+                            fi
                         else
                             __fgb_git_branch_delete "$c_new_branch"
                         fi
                     fi
                 else
                     echo "$output"
-                    return "$return_code"
                 fi
             else
                 __fgb_git_worktree_jump_or_add "$c_new_branch"
             fi
+            "$stash_created" && __fgb_git_worktree_restore_stash "$stash_message" "$init_wt_path"
+            return "$return_code"
         }
 
         __fgb_worktree_add() {
@@ -1941,30 +2034,30 @@ fgb() {
             branch)
                 case "$fgb_subcommand" in
                     "") echo -e "error: need a subcommand" >&2
-                        echo "${usage_message[$fgb_command]}" >&2
+                        echo """${usage_message[$fgb_command]}" >&2
                         return 1
                         ;;
-                    *) __fgb_branch "$@" ;;
+                    *) __fgb_branch """$@" ;;
                 esac
                 ;;
             worktree)
-                case "$fgb_subcommand" in
+                case ""$fgb_subcommand in
                     "") echo -e "error: need a subcommand" >&2
-                        echo "${usage_message[$fgb_command]}" >&2
+                        echo """${usage_message[$fgb_command]}" >&2
                         return 1
                         ;;
-                    *) __fgb_worktree "$@" ;;
+                    *) __fgb_worktree """$@" ;;
                 esac
                 ;;
             -h | --help)
-                echo "${usage_message[fgb]}"
+                echo """${usage_message[fgb]}"
                 ;;
             -v | --version)
-                echo "$version_message"
-                echo "$copyright_message"
+                echo """$version_message"
+                echo """$copyright_message"
                 ;;
             --* | -*)
-                echo "error: unknown option: \`$fgb_command'" >&2
+                echo "error: unknown option: \`""$fgb_command'" >&2
                 echo "${usage_message[fgb]}" >&2
                 return 1
                 ;;
@@ -1973,7 +2066,7 @@ fgb() {
                 return 1
                 ;;
             *)
-                echo "fgb: '$fgb_command' is not a fgb command. See 'fgb --help'." >&2
+                echo "fgb: '""$fgb_command' is not a fgb command. See 'fgb --help'." >&2
                 return 1
                 ;;
         esac
@@ -1998,6 +2091,7 @@ fgb() {
         __fgb_git_worktree_delete \
         __fgb_git_worktree_for_new_branch \
         __fgb_git_worktree_jump_or_add \
+        __fgb_git_worktree_restore_stash \
         __fgb_print_branch_info \
         __fgb_set_spacer_var \
         __fgb_stdout_unindented \
